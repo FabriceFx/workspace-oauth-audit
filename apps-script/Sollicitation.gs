@@ -1,5 +1,5 @@
 /**
- * Sollicitation des autorisants — v0.3.
+ * Sollicitation des autorisants — introduite en v0.3.
  *
  * Écrit aux comptes qui ont autorisé une application tierce pour leur demander
  * à quoi elle sert, leur rappeler comment retirer eux-mêmes un accès, et leur
@@ -35,8 +35,8 @@ const ONGLET_SOLLICITATIONS_ = 'Sollicitations';
 const ONGLET_MODELE_ = 'Modèle';
 
 const COLONNES_SOLLICITATIONS_ = [
-  'Compte', 'Domaine', 'Applications', 'Détail', 'État', 'Préparé le',
-  'Envoyé le', 'Relances', 'Réponse'
+  'compte', 'domaine', 'langue', 'applications', 'detail', 'etat', 'prepareLe',
+  'envoyeLe', 'relances', 'reponse'
 ];
 
 /** États d'un accès qui méritent qu'on écrive à la personne. */
@@ -55,6 +55,24 @@ const MARGE_QUOTA_ = 10;
  * ajuster ne demande aucun déploiement. La prose, elle, reste ici — c'est une
  * structure, pas une donnée, et elle se relit mal dans une cellule.
  */
+const REGLES_EN_ = [
+  'Never "Untitled project". The project name is the only identification visible '
+  + 'in the audit log and in the list of connected applications: an anonymous '
+  + 'project is an access nobody can tie to a purpose.',
+  'Agreed form: TEAM — Purpose — STATE. For example "IT — Invoice reminders — PROD".',
+  'Three states only: PROD for what runs, TEST for what is being validated, SBOX '
+  + 'for a sandbox. A SBOX project older than six months is a project to delete.',
+  'No person\'s name and no personal data in the title: these names appear in '
+  + 'plain text in audit exports, which travel further than the project does.',
+  'Purpose in plain words, no undocumented internal acronym. The name must stay '
+  + 'readable by someone discovering the project in three years.',
+  'One project, one purpose. Piling unrelated scripts into one project adds up '
+  + 'their authorisations: the project ends up holding accesses nobody can justify.',
+  'Renaming an existing project is safe, under Project Settings. Authorisations '
+  + 'already granted may keep showing the old name until they are renewed — all '
+  + 'the more reason to name it properly from the start.'
+];
+
 const MODELE_DEFAUT_ = [
   ['Paramètre', 'Valeur'],
   ['Objet', 'Applications tierces connectées à votre compte Google — pouvez-vous nous éclairer ?'],
@@ -86,13 +104,16 @@ const MODELE_DEFAUT_ = [
   ['7', 'Renommer un projet existant se fait sans risque, dans Paramètres du projet. '
     + 'Les autorisations déjà accordées peuvent continuer d\'afficher l\'ancien nom '
     + 'jusqu\'à leur renouvellement — raison de plus pour nommer correctement dès '
-    + 'la création.']
+    + 'la création.'],
+  ['', ''],
+  ['Naming rules for Apps Script projects (en)', ''],
+  ...REGLES_EN_.map((r, i) => [String(i + 1), r])
 ];
 
-const feuilleAvecDefaut_ = (classeur, nom, contenu) => {
-  const existante = classeur.getSheetByName(nom);
+const feuilleAvecDefaut_ = (classeur, id, contenu, lg) => {
+  const existante = ongletCanonique_(classeur, id, lg || LANGUE_DEFAUT_);
   if (existante) return existante;
-  const f = classeur.insertSheet(nom);
+  const f = classeur.insertSheet(nomOnglet_(id, lg || LANGUE_DEFAUT_));
   f.getRange(1, 1, contenu.length, contenu[0].length).setValues(contenu);
   f.getRange(1, 1, 1, contenu[0].length).setFontWeight('bold');
   f.setFrozenRows(1);
@@ -101,18 +122,35 @@ const feuilleAvecDefaut_ = (classeur, nom, contenu) => {
   return f;
 };
 
+/**
+ * Le modèle porte les paramètres, puis un jeu de règles par langue, chacun
+ * introduit par son propre titre. Un classeur créé avant la v1.4 n'a que le
+ * bloc français : ses règles anglaises sont alors ajoutées à la lecture, plutôt
+ * que d'obliger à recréer l'onglet et à perdre les amendements déjà faits.
+ */
 const lireModele_ = (classeur) => {
-  const f = feuilleAvecDefaut_(classeur, ONGLET_MODELE_, MODELE_DEFAUT_);
+  const f = feuilleAvecDefaut_(classeur, 'modele', MODELE_DEFAUT_);
   const valeurs = f.getDataRange().getValues();
   const params = {};
-  const regles = [];
-  let dansRegles = false;
+  const regles = { fr: [], en: [] };
+  let bloc = null;
+
   for (const [cle, valeur] of valeurs.slice(1)) {
     const k = String(cle).trim();
-    if (k.startsWith('Règles de nommage')) { dansRegles = true; continue; }
+    if (k.startsWith('Règles de nommage')) { bloc = 'fr'; continue; }
+    if (k.startsWith('Naming rules')) { bloc = 'en'; continue; }
     if (!k) continue;
-    if (dansRegles) { if (String(valeur).trim()) regles.push(String(valeur).trim()); }
+    if (bloc) { if (String(valeur).trim()) regles[bloc].push(String(valeur).trim()); }
     else params[k] = valeur;
+  }
+
+  if (!regles.en.length) {
+    const depart = f.getLastRow() + 2;
+    f.getRange(depart, 1, 1, 2).setValues([['Naming rules for Apps Script projects (en)', '']]);
+    f.getRange(depart + 1, 1, REGLES_EN_.length, 2)
+      .setValues(REGLES_EN_.map((r, i) => [String(i + 1), r]));
+    f.getRange(depart, 1, REGLES_EN_.length + 1, 2).setWrap(true);
+    regles.en = REGLES_EN_.slice();
   }
   return { params, regles };
 };
@@ -137,19 +175,19 @@ const lireModele_ = (classeur) => {
  * une telle relecture, et le courriel partirait avec du charabia.
  */
 const grouperAutorisants_ = (classeur) => {
-  const autorisants = classeur.getSheetByName('Autorisants');
+  const autorisants = chercherOnglet_(classeur, 'autorisants');
   if (!autorisants || autorisants.getLastRow() < 2) return null;
   const silencieuses = decisionsSilencieuses_(classeur);
 
   const valeurs = autorisants.getDataRange().getValues();
   const entetes = valeurs[0];
-  const iCompte = entetes.indexOf('Compte');
-  const iDomaine = entetes.indexOf('Domaine');
-  const iApp = entetes.indexOf('Application');
-  const iCid = entetes.indexOf('client_id');
-  const iEtat = entetes.indexOf('État présumé');
-  const iPortees = entetes.indexOf('Portées');
-  const iPremiere = entetes.indexOf('Première');
+  const iCompte = colonne_(entetes, 'compte');
+  const iDomaine = colonne_(entetes, 'domaine');
+  const iApp = colonne_(entetes, 'application');
+  const iCid = colonne_(entetes, 'clientId');
+  const iEtat = colonne_(entetes, 'etatPresume');
+  const iPortees = colonne_(entetes, 'portees');
+  const iPremiere = colonne_(entetes, 'premiere');
 
   const parCompte = new Map();
   let ecartesApprouvees = 0;
@@ -201,14 +239,16 @@ function preparerSollicitations() {
   const { parCompte, ecartesEtat, ecartesApprouvees } = groupes;
   const dejaEnvoye = etatsExistants_(classeur);
 
-  const f = onglet_(classeur, ONGLET_SOLLICITATIONS_, COLONNES_SOLLICITATIONS_);
+  const params = reglages_(classeur);
+  const f = onglet_(classeur, 'sollicitations', COLONNES_SOLLICITATIONS_, params.interface);
   const aujourdhui = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const lignes = [...parCompte.values()]
     .sort((a, b) => b.apps.length - a.apps.length)
     .map((p) => {
       const ancien = dejaEnvoye.get(p.compte);
       return [
-        p.compte, p.domaine, p.apps.length,
+        p.compte, p.domaine, langueDe_(p.compte, params),
+        p.apps.length,
         p.apps.map((a) => `${a.nom} (${a.familles.join(', ')}, vu depuis ${a.depuis})`).join(' | '),
         ancien ? ancien.etat : 'à envoyer',
         aujourdhui,
@@ -239,19 +279,19 @@ function preparerSollicitations() {
 
 /** Ce qui a déjà été envoyé, pour ne pas l'oublier en reconstruisant le plan. */
 const etatsExistants_ = (classeur) => {
-  const f = classeur.getSheetByName(ONGLET_SOLLICITATIONS_);
+  const f = chercherOnglet_(classeur, 'sollicitations');
   const connus = new Map();
   if (!f || f.getLastRow() < 2) return connus;
   const valeurs = f.getDataRange().getValues();
   const e = valeurs[0];
   for (const l of valeurs.slice(1)) {
-    const compte = String(l[e.indexOf('Compte')] || '').trim();
+    const compte = String(l[colonne_(e, 'compte')] || '').trim();
     if (!compte) continue;
     connus.set(compte, {
-      etat: String(l[e.indexOf('État')] || 'à envoyer'),
-      envoyeLe: l[e.indexOf('Envoyé le')] || '',
-      relances: l[e.indexOf('Relances')] || 0,
-      reponse: l[e.indexOf('Réponse')] || ''
+      etat: String(l[colonne_(e, 'etat')] || 'à envoyer'),
+      envoyeLe: l[colonne_(e, 'envoyeLe')] || '',
+      relances: l[colonne_(e, 'relances')] || 0,
+      reponse: l[colonne_(e, 'reponse')] || ''
     });
   }
   return connus;
@@ -259,85 +299,99 @@ const etatsExistants_ = (classeur) => {
 
 // ------------------------------------------------------------------- courriel
 
-const corpsCourriel_ = (destinataire, apps, modele) => {
-  const { params, regles } = modele;
+/**
+ * Le corps du courriel, dans la langue du destinataire.
+ *
+ * Les règles de nommage viennent de l'onglet Modèle, qui en porte un jeu par
+ * langue ; le reste vient du dictionnaire. Ce qu'un administrateur peut vouloir
+ * amender — le délai, le contact, la signature, les règles — reste dans le
+ * classeur ; la charpente de la lettre reste dans le code.
+ */
+const corpsCourriel_ = (destinataire, apps, modele, langue) => {
+  const lg = langue || LANGUE_DEFAUT_;
+  const { params } = modele;
+  const regles = modele.regles[lg] && modele.regles[lg].length
+    ? modele.regles[lg] : (modele.regles[LANGUE_DEFAUT_] || []);
   const delai = params['Délai de réponse (jours)'] || 15;
   const contact = String(params.Contact || '').trim();
-  const signature = params.Signature || '';
-  const intro = params['Phrase d\'introduction'] || '';
+  const signature = String(params.Signature || '').trim() || t_('courriel.signature', lg);
+  const intro = lg === LANGUE_DEFAUT_ && String(params['Phrase d\'introduction'] || '').trim()
+    ? String(params['Phrase d\'introduction']).trim()
+    : t_('courriel.intro', lg);
 
   const lignesApps = apps.map((a) => `
     <tr>
       <td style="padding:6px 12px 6px 0">${echapper_(a.nom)}</td>
-      <td style="padding:6px 12px 6px 0">${echapper_(enClair_(a.familles))}</td>
-      <td style="padding:6px 0">${echapper_(a.depuis)}</td>
+      <td style="padding:6px 12px 6px 0">${echapper_(enClairLangue_(a.familles, lg))}</td>
+      <td style="padding:6px 0">${echapper_(dateLisibleLangue_(a.depuis, lg))}</td>
     </tr>`).join('');
 
-  const lignesRegles = regles.map((r) => `<li style="margin:6px 0">${echapper_(r)}</li>`).join('');
+  const lignesRegles = regles
+    .map((r) => `<li style="margin:6px 0">${echapper_(r)}</li>`).join('');
+  const cloture = contact
+    ? `${t_('courriel.delai.a', lg)} ${echapper_(contact)}`
+    : t_('courriel.delai.reponse', lg);
 
   const html = `
 <div style="font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:#202124;max-width:640px">
-  <p>Bonjour,</p>
+  <p>${t_('courriel.bonjour', lg)}</p>
   <p>${echapper_(intro)}</p>
 
   <table style="border-collapse:collapse;margin:18px 0">
     <tr style="border-bottom:1px solid #dadce0;text-align:left">
-      <th style="padding:6px 12px 6px 0">Application</th>
-      <th style="padding:6px 12px 6px 0">Accède à</th>
-      <th style="padding:6px 0">Autorisée depuis</th>
+      <th style="padding:6px 12px 6px 0">${t_('courriel.colonne.application', lg)}</th>
+      <th style="padding:6px 12px 6px 0">${t_('courriel.colonne.acces', lg)}</th>
+      <th style="padding:6px 0">${t_('courriel.colonne.depuis', lg)}</th>
     </tr>
     ${lignesApps}
   </table>
 
-  <p><strong>Ce que nous vous demandons</strong>, pour chacune :</p>
+  <p><strong>${t_('courriel.demande', lg)}</strong>${t_('courriel.demande.pourChacune', lg)}</p>
   <ol>
-    <li>à quoi elle vous sert, en une phrase ;</li>
-    <li>si elle vous est encore nécessaire aujourd'hui ;</li>
-    <li>si d'autres personnes s'en servent, et lesquelles.</li>
+    <li>${t_('courriel.demande.1', lg)}</li>
+    <li>${t_('courriel.demande.2', lg)}</li>
+    <li>${t_('courriel.demande.3', lg)}</li>
   </ol>
 
-  <p><strong>Si vous ne la reconnaissez pas, ou si elle ne vous sert plus</strong>, vous
-  pouvez retirer son accès vous-même, en quelques secondes et sans nous attendre :
-  <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.
-  Dites-le-nous simplement, pour que nous n'ayons pas à revenir vers vous.</p>
+  <p><strong>${t_('courriel.retirer.titre', lg)}</strong>${t_('courriel.retirer.corps', lg)}
+  <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>${
+    t_('courriel.retirer.suite', lg)}</p>
 
   <p style="background:#f8f9fa;border-left:3px solid #dadce0;padding:10px 14px">
-  Une autorisation accordée ne s'arrête jamais d'elle-même : elle reste valable
-  jusqu'à ce que quelqu'un la retire. C'est pourquoi nous les passons en revue.
-  Une application autorisée « pour essayer » il y a deux ans a toujours accès
-  aujourd'hui.</p>
+  ${t_('courriel.encadre', lg)}</p>
 
   ${regles.length ? `
-  <p><strong>Si l'une de ces applications est un projet Apps Script que vous avez
-  créé</strong>, voici les règles de nommage à appliquer. Un projet mal nommé est un
-  accès que personne ne peut rattacher à un usage — et c'est aujourd'hui le premier
-  obstacle à cette revue.</p>
+  <p>${t_('courriel.regles.intro', lg)}</p>
   <ol>${lignesRegles}</ol>` : ''}
 
-  <p>Merci de nous répondre sous <strong>${echapper_(delai)} jours</strong>${
-    contact ? `, à ${echapper_(contact)}` : ', par simple réponse à ce message'}.
-  Sans réponse, les accès concernés seront réexaminés et pourront être retirés.</p>
+  <p>${t_('courriel.delai', lg)} <strong>${echapper_(delai)} ${
+    t_('courriel.delai.jours', lg)}</strong>${cloture}.
+  ${t_('courriel.sansReponse', lg)}</p>
 
   <p>${echapper_(signature)}</p>
 </div>`;
 
   const texte = [
-    'Bonjour,', '', intro, '',
-    ...apps.map((a) => `  - ${a.nom} — accède à ${enClair_(a.familles)} — vue depuis ${a.depuis}`),
+    t_('courriel.bonjour', lg), '', intro, '',
+    ...apps.map((a) => `  - ${a.nom} — ${t_('courriel.colonne.acces', lg).toLowerCase()} `
+      + `${enClairLangue_(a.familles, lg)} — ${dateLisibleLangue_(a.depuis, lg)}`),
     '',
-    'Pour chacune : à quoi elle vous sert, si elle vous est encore nécessaire,',
-    'et qui d\'autre s\'en sert.', '',
-    'Si vous ne la reconnaissez pas ou qu\'elle ne vous sert plus, vous pouvez',
-    'retirer son accès vous-même : https://myaccount.google.com/permissions', '',
-    'Une autorisation accordée ne s\'arrête jamais d\'elle-même : elle reste',
-    'valable jusqu\'à ce que quelqu\'un la retire.', '',
-    ...(regles.length ? ['Règles de nommage des projets Apps Script :',
+    `${t_('courriel.demande', lg)} :`,
+    `  1. ${t_('courriel.demande.1', lg)}`,
+    `  2. ${t_('courriel.demande.2', lg)}`,
+    `  3. ${t_('courriel.demande.3', lg)}`, '',
+    `${t_('courriel.retirer.titre', lg)}${t_('courriel.retirer.corps', lg)}`,
+    '  https://myaccount.google.com/permissions', '',
+    t_('courriel.encadre', lg), '',
+    ...(regles.length ? [`${t_('courriel.regles.intro', lg)}`,
       ...regles.map((r, i) => `  ${i + 1}. ${r}`), ''] : []),
-    `Merci de nous répondre sous ${delai} jours${contact ? `, à ${contact}` : ''}.`,
+    `${t_('courriel.delai', lg)} ${delai} ${t_('courriel.delai.jours', lg)}`
+      + `${contact ? `${t_('courriel.delai.a', lg)} ${contact}` : ''}. `
+      + `${t_('courriel.sansReponse', lg)}`,
     '', signature
   ].join('\n');
 
-  return { html, texte };
+  return { html, texte, objet: t_('courriel.objet', lg) };
 };
 
 // -------------------------------------------------------------------- l'envoi
@@ -350,14 +404,11 @@ function envoyerSollicitationExemple() {
     { nom: 'SI — Relance des factures — PROD', familles: ['drive', 'gmail'], depuis: '2026-03-12' },
     { nom: 'Projet sans titre', familles: ['drive', 'script'], depuis: '2026-05-02' }
   ];
-  const { html, texte } = corpsCourriel_(moi, exemple, modele);
-  MailApp.sendEmail({
-    to: moi,
-    subject: `[EXEMPLE] ${modele.params.Objet}`,
-    body: texte,
-    htmlBody: html
-  });
-  dire_(`Exemplaire envoyé à ${moi}, avec deux applications fictives.`);
+  const langue = reglages_(classeur).courriels;
+  const { html, texte, objet } = corpsCourriel_(moi, exemple, modele, langue);
+  MailApp.sendEmail({ to: moi, subject: `[EXEMPLE] ${objet}`, body: texte, htmlBody: html });
+  dire_(`Exemplaire envoyé à ${moi}, avec deux applications fictives, `
+    + `en « ${langue} ».`);
   dire_('');
   dire_('Relisez-le comme le recevra un collègue : le ton, le délai, le contact, et');
   dire_('surtout les règles de nommage, qui se modifient dans l\'onglet '
@@ -367,7 +418,7 @@ function envoyerSollicitationExemple() {
 
 function envoyerSollicitations() {
   const classeur = classeurCourant_();
-  const f = classeur.getSheetByName(ONGLET_SOLLICITATIONS_);
+  const f = chercherOnglet_(classeur, 'sollicitations');
   if (!f || f.getLastRow() < 2) {
     dire_('Aucun plan à envoyer. Préparez-le d\'abord.');
     vider_('Rien à envoyer');
@@ -375,9 +426,10 @@ function envoyerSollicitations() {
   }
   const valeurs = f.getDataRange().getValues();
   const e = valeurs[0];
-  const iCompte = e.indexOf('Compte');
-  const iEtat = e.indexOf('État');
-  const iEnvoye = e.indexOf('Envoyé le');
+  const iCompte = colonne_(e, 'compte');
+  const iLangue = colonne_(e, 'langue');
+  const iEtat = colonne_(e, 'etat');
+  const iEnvoye = colonne_(e, 'envoyeLe');
 
   const groupes = grouperAutorisants_(classeur);
   if (!groupes) {
@@ -393,7 +445,10 @@ function envoyerSollicitations() {
     if (String(l[iEtat]).trim() !== 'à envoyer' || compte.indexOf('@') < 0) return;
     const groupe = groupes.parCompte.get(compte);
     if (!groupe) return;   // le plan est plus vieux que la source : on saute
-    aEnvoyer.push({ ligne: i + 2, compte, apps: groupe.apps });
+    aEnvoyer.push({
+      ligne: i + 2, compte, apps: groupe.apps,
+      langue: langueValide_(iLangue >= 0 ? l[iLangue] : LANGUE_DEFAUT_)
+    });
   });
 
   if (!aEnvoyer.length) {
@@ -443,10 +498,9 @@ function envoyerSollicitations() {
   for (const cible of aEnvoyer.slice(0, possible)) {
     if (Date.now() - t0 > BUDGET_MS) break;
     try {
-      const { html, texte } = corpsCourriel_(cible.compte, cible.apps, modele);
-      MailApp.sendEmail({
-        to: cible.compte, subject: modele.params.Objet, body: texte, htmlBody: html
-      });
+      const { html, texte, objet } = corpsCourriel_(
+        cible.compte, cible.apps, modele, cible.langue);
+      MailApp.sendEmail({ to: cible.compte, subject: objet, body: texte, htmlBody: html });
       // Marqué tout de suite : une interruption ne peut pas produire de doublon.
       f.getRange(cible.ligne, iEtat + 1).setValue('envoyé');
       f.getRange(cible.ligne, iEnvoye + 1).setValue(aujourdhui);

@@ -1,5 +1,5 @@
 /**
- * Volumétrie des accès — v0.7.
+ * Volumétrie des accès — introduite en v0.7.
  *
  * Les événements « activity » du journal portent `num_response_bytes` : le
  * volume que Google a réellement rendu à l'application, appel par appel. C'est
@@ -39,9 +39,8 @@ const FENETRE_RECENTE_JOURS_ = 30;
 const SEUIL_VOLUME_30J_ = 1024 * 1024 * 1024;
 
 const COLONNES_VOLUMETRIE_ = [
-  'Application', 'client_id', 'Service', 'Appels', 'Volume', 'Volume (o)',
-  `Appels ${FENETRE_RECENTE_JOURS_} j`, `Volume ${FENETRE_RECENTE_JOURS_} j`,
-  `Volume ${FENETRE_RECENTE_JOURS_} j (o)`, 'Part du total', 'Dernier appel'
+  'application', 'clientId', 'service', 'appels', 'volume', 'volumeOctets',
+  'appelsRecents', 'volumeRecent', 'volumeRecentOctets', 'partDuTotal', 'dernierAppel'
 ];
 
 const debutFenetreRecente_ = () =>
@@ -70,8 +69,8 @@ const compterAppel_ = (app, services, cid, service, octets, recent, horo) => {
   if (horo > s.dernier) s.dernier = horo;
 };
 
-const ecrireVolumetrie_ = (classeur, apps, services, total) => {
-  const f = onglet_(classeur, 'Volumétrie', COLONNES_VOLUMETRIE_);
+const ecrireVolumetrie_ = (classeur, apps, services, total, lg) => {
+  const f = onglet_(classeur, 'volumetrie', COLONNES_VOLUMETRIE_, lg);
 
   if (!services.size) {
     poser_(f, [[

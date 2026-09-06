@@ -1,5 +1,5 @@
 /**
- * Sonde de faisabilité — v0.1.
+ * Sonde de faisabilité — introduite en v0.1.
  *
  * Ne produit aucun rapport et ne modifie rien. Elle répond à trois questions,
  * avant qu'une ligne de l'outil ne soit écrite :

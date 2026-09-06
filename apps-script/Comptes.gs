@@ -1,5 +1,5 @@
 /**
- * Profil des comptes — v0.4.
+ * Profil des comptes — introduit en v0.4.
  *
  * Une application autorisée par un administrateur délégué n'est pas dans la
  * même catégorie qu'une autre : ses portées s'exercent sur un compte qui peut
@@ -20,7 +20,7 @@
 
 const ONGLET_COMPTES_ = '_Comptes';
 
-const COLONNES_COMPTES_ = ['Compte', 'Administrateur', 'Délégué', 'Suspendu', 'Relevé le'];
+const COLONNES_COMPTES_ = ['compte', 'administrateur', 'delegue', 'suspendu', 'releveLe'];
 
 function rafraichirComptes() {
   const t0 = Date.now();
@@ -68,7 +68,7 @@ function rafraichirComptes() {
     return;
   }
 
-  const f = onglet_(classeur, ONGLET_COMPTES_, COLONNES_COMPTES_);
+  const f = onglet_(classeur, 'comptes', COLONNES_COMPTES_, reglages_(classeur).interface);
   poser_(f, remarquables, false);
   f.hideSheet();
 
@@ -92,15 +92,15 @@ function rafraichirComptes() {
 
 /** Compte -> profil, pour les seuls comptes hors du commun. */
 const lireComptes_ = (classeur) => {
-  const f = classeur.getSheetByName(ONGLET_COMPTES_);
+  const f = chercherOnglet_(classeur, 'comptes');
   const profils = new Map();
   if (!f || f.getLastRow() < 2) return profils;
   const valeurs = f.getDataRange().getValues();
   const e = valeurs[0];
-  const iCompte = e.indexOf('Compte');
-  const iAdmin = e.indexOf('Administrateur');
-  const iDelegue = e.indexOf('Délégué');
-  const iSuspendu = e.indexOf('Suspendu');
+  const iCompte = colonne_(e, 'compte');
+  const iAdmin = colonne_(e, 'administrateur');
+  const iDelegue = colonne_(e, 'delegue');
+  const iSuspendu = colonne_(e, 'suspendu');
   for (const l of valeurs.slice(1)) {
     const compte = String(l[iCompte] || '').trim();
     if (!compte) continue;

@@ -1,5 +1,5 @@
 /**
- * Catalogue de sensibilité des portées — v0.5.
+ * Catalogue de sensibilité des portées — introduit en v0.5.
  *
  * DEUX AXES, PARCE QU'UN SEUL MENTIRAIT
  *
@@ -33,7 +33,7 @@
 
 const ONGLET_CATALOGUE_ = 'Catalogue portées';
 
-const COLONNES_CATALOGUE_ = ['Portée ou préfixe', 'Niveau', 'Administration', 'Note'];
+const COLONNES_CATALOGUE_ = ['porteeOuPrefixe', 'niveau', 'administration', 'note'];
 
 const NIVEAUX_ = ['restreinte', 'sensible', 'basique'];
 
@@ -95,20 +95,22 @@ const CATALOGUE_DEFAUT_ = [
 ];
 
 const chargerCatalogue_ = (classeur) => {
-  let f = classeur.getSheetByName(ONGLET_CATALOGUE_);
+  let f = chercherOnglet_(classeur, 'catalogue');
   if (!f) {
-    f = classeur.insertSheet(ONGLET_CATALOGUE_);
-    f.getRange(1, 1, CATALOGUE_DEFAUT_.length, COLONNES_CATALOGUE_.length)
-      .setValues(CATALOGUE_DEFAUT_);
+    const langue = reglages_(classeur).interface;
+    f = classeur.insertSheet(nomOnglet_('catalogue', langue));
+    const contenu = CATALOGUE_DEFAUT_.slice();
+    contenu[0] = entetesEn_(COLONNES_CATALOGUE_, langue);
+    f.getRange(1, 1, contenu.length, COLONNES_CATALOGUE_.length).setValues(contenu);
     f.getRange(1, 1, 1, COLONNES_CATALOGUE_.length).setFontWeight('bold');
     f.setFrozenRows(1);
     f.autoResizeColumns(1, COLONNES_CATALOGUE_.length);
   }
   const valeurs = f.getDataRange().getValues();
   const e = valeurs[0];
-  const iCle = e.indexOf('Portée ou préfixe');
-  const iNiveau = e.indexOf('Niveau');
-  const iAdmin = e.indexOf('Administration');
+  const iCle = colonne_(e, 'porteeOuPrefixe');
+  const iNiveau = colonne_(e, 'niveau');
+  const iAdmin = colonne_(e, 'administration');
 
   const entrees = [];
   for (const l of valeurs.slice(1)) {
@@ -189,9 +191,9 @@ const evaluer_ = (app) => {
 };
 
 const COLONNES_INSTRUIRE_ = [
-  'Priorité', 'Application', 'client_id', 'Niveau max', 'Administration',
-  'Autorisants', 'dont à privilèges', 'dont suspendus', 'Motifs',
-  'Première vue', 'Dernière vue'
+  'priorite', 'application', 'clientId', 'niveauMax', 'administration',
+  'autorisants', 'dontPrivileges', 'dontSuspendus', 'motifs',
+  'premiereVue', 'derniereVue'
 ];
 
 /**
@@ -200,8 +202,8 @@ const COLONNES_INSTRUIRE_ = [
  * Une application dont la décision est en vigueur en sort ; une application dont
  * la décision a expiré y revient. C'est tout l'intérêt d'une échéance.
  */
-const ecrireAInstruire_ = (classeur, apps, decisions) => {
-  const f = onglet_(classeur, 'À instruire', COLONNES_INSTRUIRE_);
+const ecrireAInstruire_ = (classeur, apps, decisions, lg) => {
+  const f = onglet_(classeur, 'aInstruire', COLONNES_INSTRUIRE_, lg);
   const lignes = [...apps.values()]
     .filter((a) => {
       const d = decisions.get(a.cid);

@@ -1,5 +1,5 @@
 /**
- * Agrégation du journal moissonné en quatre onglets — v0.2, enrichie en v0.4.
+ * Agrégation du journal moissonné en onglets — introduite en v0.2.
  *
  * L'onglet brut est la preuve, ces quatre-là sont le rapport :
  *
@@ -29,7 +29,7 @@ const TAILLE_LOT_ = 20000;
  */
 function reagreger() {
   const classeur = classeurCourant_();
-  const brut = classeur.getSheetByName(ONGLET_BRUT_);
+  const brut = chercherOnglet_(classeur, 'brut');
   if (!brut || brut.getLastRow() < 2) {
     dire_('Il n\'y a rien à agréger : l\'onglet brut est absent ou vide.');
     dire_('Le journal se moissonne d\'abord — moissonner(180) — et l\'agrégation');
@@ -42,8 +42,9 @@ function reagreger() {
 
 const agreger_ = (classeur, etat) => {
   const t0 = Date.now();
-  const brut = classeur.getSheetByName(ONGLET_BRUT_);
-  if (!brut) throw new Error(`Onglet ${ONGLET_BRUT_} introuvable : moissonner() d'abord.`);
+  const lg = reglages_(classeur).interface;
+  const brut = chercherOnglet_(classeur, 'brut');
+  if (!brut) throw new Error(`Onglet ${nomOnglet_('brut', lg)} introuvable : moissonner() d'abord.`);
 
   const dernier = brut.getLastRow();
   if (dernier < 2) throw new Error('Le journal moissonné est vide.');
@@ -66,8 +67,9 @@ const agreger_ = (classeur, etat) => {
   let horoMax = null;
   let nbLignes = 0;
 
+  const entetesBrut = brut.getRange(1, 1, 1, COLONNES_BRUT_.length).getValues()[0];
   const C = {};
-  COLONNES_BRUT_.forEach((nom, i) => { C[nom] = i; });
+  COLONNES_BRUT_.forEach((id) => { C[id] = colonne_(entetesBrut, id); });
 
   for (let debut = 2; debut <= dernier; debut += TAILLE_LOT_) {
     if (Date.now() - t0 > BUDGET_MS) {
@@ -81,12 +83,12 @@ const agreger_ = (classeur, etat) => {
     for (const l of lot) {
       nbLignes++;
       const horo = jour_(l[C.horodatage]);
-      const compte = String(l[C.compte] || '');
-      const dom = String(l[C.domaine] || '');
+      const compte = String(l[C.compteMin] || '');
+      const dom = String(l[C.domaineMin] || '');
       const evenement = String(l[C.evenement] || '');
-      const cid = String(l[C.client_id] || '');
-      const nom = String(l[C.application] || '') || cid || '(sans nom)';
-      const octets = typeof l[C.octets] === 'number' && l[C.octets] > 0 ? l[C.octets] : 0;
+      const cid = String(l[C.clientId] || '');
+      const nom = String(l[C.applicationMin] || '') || cid || '(sans nom)';
+      const octets = typeof l[C.octetsMin] === 'number' && l[C.octetsMin] > 0 ? l[C.octetsMin] : 0;
 
       if (horo) {
         if (!horoMin || horo < horoMin) horoMin = horo;
@@ -98,7 +100,7 @@ const agreger_ = (classeur, etat) => {
         parDomaine[dom] = (parDomaine[dom] || 0) + 1;
       }
       if (evenement === 'deny') {
-        const motif = String(l[C.motif_refus] || '') || '(non précisé)';
+        const motif = String(l[C.motifRefus] || '') || '(non précisé)';
         motifsRefus[motif] = (motifsRefus[motif] || 0) + 1;
       }
       if (octets) { octetsTotal += octets; evenementsAvecOctets++; }
@@ -106,7 +108,7 @@ const agreger_ = (classeur, etat) => {
 
       if (!apps.has(cid)) {
         apps.set(cid, {
-          nom, cid, clientType: String(l[C.client_type] || ''),
+          nom, cid, clientType: String(l[C.clientType] || ''),
           autorisants: new Set(), aPrivileges: new Set(), suspendus: new Set(),
           niveauMax: null, administration: false, porteesInconnues: new Set(),
           jetons: new Set(), appels: 0, appels30: 0, octets30: 0,
@@ -128,7 +130,7 @@ const agreger_ = (classeur, etat) => {
         a.octets += octets;
       }
 
-      const listePortees = String(l[C.portees] || '').split(' ').filter(Boolean);
+      const listePortees = String(l[C.porteesMin] || '').split(' ').filter(Boolean);
       for (const p of listePortees) {
         a.portees.add(p);
         const classement = classerPortee_(p, catalogue);
@@ -170,7 +172,7 @@ const agreger_ = (classeur, etat) => {
         if (!c.derniere || horo > c.derniere) c.derniere = horo;
       }
       compter_(c, evenement);
-      if (l[C.demandeur]) c.demandeur = String(l[C.demandeur]);
+      if (l[C.demandeurMin]) c.demandeur = String(l[C.demandeurMin]);
       for (const p of listePortees) c.portees.add(p);
     }
   }
@@ -193,28 +195,28 @@ const agreger_ = (classeur, etat) => {
 
   for (const a of apps.values()) a.evaluation = evaluer_(a);
 
-  const ajouts = synchroniserDecisions_(classeur, apps);
+  const ajouts = synchroniserDecisions_(classeur, apps, lg);
   const decisions = lireDecisions_(classeur);
-  contexte.services = ecrireVolumetrie_(classeur, apps, services, octetsTotal);
+  contexte.services = ecrireVolumetrie_(classeur, apps, services, octetsTotal, lg);
   contexte.palmares = palmares_(apps);
   contexte.octets30 = [...apps.values()].reduce((n, a) => n + a.octets30, 0);
-  contexte.aInstruire = ecrireAInstruire_(classeur, apps, decisions);
+  contexte.aInstruire = ecrireAInstruire_(classeur, apps, decisions, lg);
   contexte.inventaire = Boolean(jetonsReleves);
   if (jetonsReleves) {
     contexte.jetonsActifs = jetonsReleves.size;
-    contexte.dormants = ecrireDormants_(classeur, apps, couples);
+    contexte.dormants = ecrireDormants_(classeur, apps, couples, lg);
   }
   contexte.porteesInconnues = [...portees.values()].filter((e) => !e.connue).length;
   contexte.bilan = bilanDecisions_(classeur, apps);
   contexte.ajouts = ajouts;
 
-  ecrireSynthese_(classeur, apps, couples, portees, contexte);
-  ecrireApplications_(classeur, apps, decisions);
-  ecrireAutorisants_(classeur, couples, Boolean(jetonsReleves));
-  ecrirePortees_(classeur, portees);
-  classeur.setActiveSheet(classeur.getSheetByName('Synthèse'));
+  ecrireSynthese_(classeur, apps, couples, portees, contexte, lg);
+  ecrireApplications_(classeur, apps, decisions, lg);
+  ecrireAutorisants_(classeur, couples, Boolean(jetonsReleves), lg);
+  ecrirePortees_(classeur, portees, lg);
+  classeur.setActiveSheet(chercherOnglet_(classeur, 'synthese'));
   classeur.moveActiveSheet(1);
-  classeur.getSheetByName(ONGLET_BRUT_).hideSheet();
+  chercherOnglet_(classeur, 'brut').hideSheet();
   const menage = nettoyerFeuilleParDefaut_(classeur);
 
   dire_(`Agrégation terminée en ${((Date.now() - t0) / 1000).toFixed(1)} s.`);
@@ -323,15 +325,22 @@ const compter_ = (o, evenement) => {
 
 // ------------------------------------------------------------------ écriture
 
-const onglet_ = (classeur, nom, entetes) => {
-  let f = classeur.getSheetByName(nom);
+/**
+ * Prépare un onglet : identifiant interne et identifiants de colonnes, jamais
+ * des libellés. Les noms visibles se déduisent de la langue courante, et un
+ * onglet créé sous une autre langue est renommé plutôt que doublé.
+ */
+const onglet_ = (classeur, id, ids, lg) => {
+  const langue = lg || LANGUE_DEFAUT_;
+  let f = ongletCanonique_(classeur, id, langue);
   if (f) {
     const filtre = f.getFilter();
     if (filtre) filtre.remove();
     f.clear();
   } else {
-    f = classeur.insertSheet(nom);
+    f = classeur.insertSheet(nomOnglet_(id, langue));
   }
+  const entetes = entetesEn_(ids, langue);
   f.getRange(1, 1, 1, entetes.length).setValues([entetes]).setFontWeight('bold');
   f.setFrozenRows(1);
   return f;
@@ -366,8 +375,8 @@ const etatPresume_ = (c) => {
   return '—';
 };
 
-const ecrireSynthese_ = (classeur, apps, couples, portees, ctx) => {
-  const f = onglet_(classeur, 'Synthèse', ['Indicateur', 'Valeur']);
+const ecrireSynthese_ = (classeur, apps, couples, portees, ctx, lg) => {
+  const f = onglet_(classeur, 'synthese', ['indicateur', 'valeur'], lg);
   const l = [];
   const fenetre = ctx.etat ? `${ctx.etat.jours} jours` : '(agrégation manuelle)';
   l.push(['Généré le', Utilities.formatDate(new Date(), Session.getScriptTimeZone(),
@@ -448,14 +457,14 @@ const ecrireSynthese_ = (classeur, apps, couples, portees, ctx) => {
   poser_(f, l, false);
 };
 
-const ecrireApplications_ = (classeur, apps, decisions) => {
-  const f = onglet_(classeur, 'Applications', [
-    'Application', 'client_id', 'Statut', 'Revoir avant', 'Priorité', 'Niveau max',
-    'Administration', 'Type', 'Autorisants', 'dont à privilèges', 'dont suspendus',
-    'Autorisations', 'Révocations', 'Refus', 'Appels', 'Volume', 'Volume (o)',
-    `Volume ${FENETRE_RECENTE_JOURS_} j`, `Appels ${FENETRE_RECENTE_JOURS_} j`,
-    'Portées', 'Familles', 'Motifs', 'Première vue', 'Dernière vue'
-  ]);
+const ecrireApplications_ = (classeur, apps, decisions, lg) => {
+  const f = onglet_(classeur, 'applications', [
+    'application', 'clientId', 'statut', 'revoirAvant', 'priorite', 'niveauMax',
+    'administration', 'type', 'autorisants', 'dontPrivileges', 'dontSuspendus',
+    'autorisations', 'revocations', 'refus', 'appels', 'volume', 'volumeOctets',
+    'volumeRecent', 'appelsRecents',
+    'portees', 'familles', 'motifs', 'premiereVue', 'derniereVue'
+  ], lg);
   const l = [...apps.values()]
     .map((a) => {
       const familles = [...new Set([...a.portees].map(famille_))].sort();
@@ -496,12 +505,12 @@ const etatJeton_ = (c, inventaire) => {
   return c.jetonActif ? 'actif' : 'clos';
 };
 
-const ecrireAutorisants_ = (classeur, couples, inventaire) => {
-  const f = onglet_(classeur, 'Autorisants', [
-    'Compte', 'Domaine', 'Profil', 'Application', 'client_id', 'Jeton',
-    'Autorisations', 'Révocations', 'Refus', 'Appels', 'État présumé',
-    'Demandé par', 'Portées', 'Première', 'Dernière'
-  ]);
+const ecrireAutorisants_ = (classeur, couples, inventaire, lg) => {
+  const f = onglet_(classeur, 'autorisants', [
+    'compte', 'domaine', 'profil', 'application', 'clientId', 'jeton',
+    'autorisations', 'revocations', 'refus', 'appels', 'etatPresume',
+    'demandePar', 'portees', 'premiere', 'derniere'
+  ], lg);
   const l = [...couples.values()]
     .map((c) => [
       c.compte, c.domaine, c.profil, c.nom, c.cid, etatJeton_(c, inventaire),
@@ -512,11 +521,11 @@ const ecrireAutorisants_ = (classeur, couples, inventaire) => {
   poser_(f, l, true);
 };
 
-const ecrirePortees_ = (classeur, portees) => {
-  const f = onglet_(classeur, 'Portées', [
-    'Portée', 'Niveau', 'Administration', 'Au catalogue ?', 'Famille',
-    'Applications', 'Comptes', 'Occurrences'
-  ]);
+const ecrirePortees_ = (classeur, portees, lg) => {
+  const f = onglet_(classeur, 'portees', [
+    'porteeOuPrefixe', 'niveau', 'administration', 'auCatalogue', 'famille',
+    'applications', 'comptes', 'occurrences'
+  ], lg);
   const l = [...portees.entries()]
     .map(([p, e]) => [p, e.niveau, e.administration ? 'oui' : '', e.connue ? 'oui' : 'NON',
       e.famille, e.apps.size, e.comptes.size, e.occurrences])

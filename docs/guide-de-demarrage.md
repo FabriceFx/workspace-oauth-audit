@@ -5,7 +5,7 @@ ordre agir, et comment lire ce qui sort. Le [`README`](../README.md) explique
 les choix de conception ; les deux se lisent séparément.
 
 Le classeur porte le même guide dans un onglet — menu **Applications tierces >
-Afficher le guide** — pour l'avoir sous la main sans changer d'écran.
+Guide complet** — pour l'avoir sous la main sans changer d'écran.
 
 ---
 
@@ -75,20 +75,27 @@ reste échouera aussi — autant le savoir en trente secondes.
 
 ## Le déroulé
 
+> **Si vous ne savez plus où vous en êtes**, la première entrée du menu vous le
+> dit. Elle nomme la prochaine chose à faire — « Relever les jetons actifs »,
+> « Classer : 12 applications sans décision », « Terminer : 7 courriels à
+> envoyer » — explique pourquoi, et la lance après confirmation. Le déroulé
+> ci-dessous est là pour reprendre la main, pas pour être mémorisé.
+
+
 ### 1. Moissonner le journal
 
-**Menu > 1. Collecter > Moissonner le journal — 180 jours.**
+**Menu > Collecter les données > Moissonner le journal d'audit — 180 jours.**
 
 Lit le journal d'audit et remplit les onglets. Peu coûteux : quelques requêtes
 pour tout le tenant. Sur un gros parc, la lecture se fait en plusieurs passes
-qui s'enchaînent toutes seules — *Où en est la campagne ?* vous le dira.
+qui s'enchaînent toutes seules — *Où en sont les collectes ?* vous le dira.
 
 À la fin, l'agrégation s'exécute d'elle-même et vous avez déjà un rapport
 complet.
 
 ### 2. Relever les profils des comptes
 
-**Menu > 1. Collecter > Relever les profils des comptes.**
+**Menu > Collecter les données > Relever les profils des comptes.**
 
 Va chercher dans l'annuaire qui est administrateur, administrateur délégué, ou
 suspendu. Rapide — dix-sept pages pour 8 500 comptes — et cela change la lecture
@@ -96,14 +103,14 @@ du rapport : une application autorisée par un administrateur délégué n'est p
 dans la même catégorie qu'une autre, et une autorisation portée par un compte
 suspendu signale une personne partie dont l'accès est resté ouvert.
 
-Relancer ensuite **Rejouer l'agrégation** pour que les colonnes se remplissent.
+Relancer ensuite **Recalculer le rapport** pour que les colonnes se remplissent.
 
 ### 3. Inventorier les jetons actifs
 
-**Menu > 1. Collecter > Inventorier les jetons actifs…**
+**Menu > Collecter les données > Relever les jetons actifs — long…**
 
 C'est l'étape longue : une requête par compte. Elle reprend toute seule jusqu'au
-bout ; *Où en est l'inventaire ?* donne l'avancement. Un nouvel inventaire
+bout ; *Où en sont les collectes ?* donne l'avancement. Un nouvel inventaire
 remplace le précédent — les mêler ferait passer pour actifs des jetons révoqués
 entre-temps.
 
@@ -137,14 +144,14 @@ le navigateur. C'est elle qui circule — jamais l'inventaire complet.
 
 ### 5. Solliciter
 
-**Menu > 3. Solliciter > Préparer les sollicitations.** Rien n'est envoyé : un
+**Menu > Écrire aux autorisants > 1. Préparer le plan d'envoi.** Rien n'est envoyé : un
 plan s'écrit dans l'onglet *Sollicitations*, une ligne par personne.
 
 Relire, supprimer les lignes qui n'ont pas lieu d'être, puis **S'envoyer un
 exemple de courriel** — c'est le seul moyen de juger le ton et les règles tels
 qu'un collègue les recevra.
 
-Enfin **Envoyer les sollicitations…**, qui annonce le nombre exact de
+Enfin **Envoyer pour de bon…**, qui annonce le nombre exact de
 destinataires avant de partir.
 
 Avant le premier envoi, ouvrir l'onglet **Modèle** et renseigner au minimum le
@@ -153,12 +160,12 @@ plutôt que dans celle de l'équipe.
 
 ### 6. Révoquer, pour ce qui a été jugé « à bloquer »
 
-**Menu > 4. Révoquer > Préparer les révocations.** Le plan ne retient que les
+**Menu > Révoquer des accès > 1. Préparer le plan de révocation.** Le plan ne retient que les
 applications portant le statut `à bloquer` dans l'onglet Décisions, avec une
 décision en vigueur. Une application non classée n'y entre pas : on ne révoque
 pas ce qu'on n'a pas jugé.
 
-Relire, puis **Appliquer les révocations…**. La confirmation annonce le nombre
+Relire, puis **Appliquer le plan…**. La confirmation annonce le nombre
 exact de jetons. Une décision révisée depuis la préparation est ignorée plutôt
 qu'exécutée.
 
@@ -186,7 +193,7 @@ que : moi* et *Accès : votre domaine*.
 > **Jamais « toute personne disposant du lien ».** Cette page montre la
 > cartographie des accès de votre tenant.
 
-Puis **Menu > Vue de consultation — obtenir le lien**.
+Puis **Menu > Partager la vue de consultation**.
 
 > **« Fonction de script introuvable : doGet »** — le déploiement sert une
 > *version figée* du code, pas le code courant. Si la vue a été déployée avant

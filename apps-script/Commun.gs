@@ -1,11 +1,27 @@
 /**
- * Constantes et fonctions partagées.
+ * Constantes et fonctions partagées — introduites en v0.2.
  *
  * Convention du projet : les points d'entrée sont des `function` déclarées —
  * l'éditeur Apps Script ne propose qu'elles au menu d'exécution — et tout
  * l'interne est écrit en `const nom_ = (…) => …`, donc invisible de ce menu.
  * La séparation public/privé se lit ainsi dans la forme même du code.
  */
+
+/**
+ * Version du projet.
+ *
+ * Seul endroit du code qui porte un numéro de version — les en-têtes de fichier
+ * ne disent que la version où le module est **apparu**, un fait qui ne change
+ * plus. Prétendre qu'un fichier « est en v0.4 » alors qu'il a été retouché six
+ * fois depuis revient à entretenir un état dupliqué qui dérive : c'est ce que
+ * faisaient les en-têtes jusqu'ici, et ils mentaient tous.
+ *
+ * Cette constante doit valoir exactement le contenu du fichier VERSION du dépôt.
+ * Le banc d'essai le vérifie : une version affichée dans l'outil et fausse serait
+ * pire que pas de version du tout, puisqu'un déploiement Apps Script sert une
+ * copie figée du code et qu'on ne peut pas deviner laquelle tourne.
+ */
+const VERSION_ = '1.4.0';
 
 /**
  * Marge de sécurité sous le plafond d'exécution, en millisecondes.
@@ -25,10 +41,11 @@ const QUOTA_DIRECTORY_PAR_MIN = 2400;
 
 const ONGLET_BRUT_ = '_Brut';
 
+/** Identifiants de colonnes, jamais des libellés : voir Langues.gs. */
 const COLONNES_BRUT_ = [
-  'horodatage', 'compte', 'domaine', 'evenement', 'application', 'client_id',
-  'client_type', 'portees', 'motif_refus', 'demandeur', 'api', 'methode',
-  'octets', 'produit'
+  'horodatage', 'compteMin', 'domaineMin', 'evenement', 'applicationMin', 'clientId',
+  'clientType', 'porteesMin', 'motifRefus', 'demandeurMin', 'api', 'methode',
+  'octetsMin', 'produit'
 ];
 
 /**
@@ -128,6 +145,58 @@ const jour_ = (valeur) => {
     : Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 };
 
+const MOIS_ = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+  'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+/**
+ * Une date pour être lue, non pour être triée.
+ *
+ * Le classeur stocke en `yyyy-MM-dd` et cela ne change pas : c'est le seul
+ * format qui se trie correctement en tant que texte, et tout le reste de l'outil
+ * en dépend. Mais `2026-09-06` n'est pas une date à montrer à un comité — d'où
+ * cette conversion, qui n'intervient qu'à l'affichage.
+ */
+const dateLisible_ = (valeur) => {
+  const m = String(valeur).match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (!m) return String(valeur);
+  const [, annee, mois, jour, heure, minute] = m;
+  const quantieme = Number(jour);
+  const texte = `${quantieme === 1 ? '1er' : quantieme} ${MOIS_[Number(mois) - 1]} ${annee}`;
+  return heure ? `${texte} à ${heure} h ${minute}` : texte;
+};
+
+const MOIS_EN_ = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+  'August', 'September', 'October', 'November', 'December'];
+
+/**
+ * La même date, dans la langue du lecteur.
+ *
+ * Le français met le mois en minuscule et un ordinal au premier du mois ;
+ * l'anglais capitalise le mois et n'en met pas. Deux règles typographiques que
+ * seule la langue décide — d'où deux rendus, et non un format paramétré.
+ */
+const dateLisibleLangue_ = (valeur, langue) => {
+  if (langue !== 'en') return dateLisible_(valeur);
+  const m = String(valeur).match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (!m) return String(valeur);
+  const [, annee, mois, jour, heure, minute] = m;
+  const texte = `${Number(jour)} ${MOIS_EN_[Number(mois) - 1]} ${annee}`;
+  return heure ? `${texte} at ${heure}:${minute}` : texte;
+};
+
+const datesLisiblesLangue_ = (texte, langue) => (langue !== 'en'
+  ? datesLisibles_(texte)
+  : String(texte).replace(/\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?/g,
+    (d) => dateLisibleLangue_(d, 'en')));
+
+/**
+ * Rend lisibles toutes les dates d'un texte, y compris au milieu d'autre chose —
+ * une période « 2026-05-29 → 2026-09-05 » devient « 29 mai 2026 → 5 septembre
+ * 2026 » sans qu'on ait à savoir d'avance ce que la chaîne contient.
+ */
+const datesLisibles_ = (texte) => String(texte)
+  .replace(/\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?/g, (d) => dateLisible_(d));
+
 /**
  * Famille d'une portée, déduite de son chemin — « drive », « gmail », « admin »…
  * Ce n'est pas un niveau de sensibilité : le catalogue arrive en v0.5.
@@ -200,15 +269,16 @@ const classeurCourant_ = () => {
  * « Feuille 1 » vide : on la renomme plutôt que d'en ajouter une et de laisser
  * une feuille orpheline derrière soi.
  */
-const brutCourant_ = (classeur) => {
-  const existant = classeur.getSheetByName(ONGLET_BRUT_);
+const brutCourant_ = (classeur, lg) => {
+  const langue = lg || LANGUE_DEFAUT_;
+  const existant = ongletCanonique_(classeur, 'brut', langue);
   if (existant) return existant;
 
+  const nom = nomOnglet_('brut', langue);
   const feuilles = classeur.getSheets();
   const seuleEtVide = feuilles.length === 1 && feuilles[0].getLastRow() === 0;
-  const brut = seuleEtVide ? feuilles[0].setName(ONGLET_BRUT_)
-                           : classeur.insertSheet(ONGLET_BRUT_);
-  return entetesBrut_(brut);
+  const brut = seuleEtVide ? feuilles[0].setName(nom) : classeur.insertSheet(nom);
+  return entetesBrut_(brut, langue);
 };
 
 /**
@@ -239,9 +309,9 @@ const nettoyerFeuilleParDefaut_ = (classeur) => {
   return true;
 };
 
-const entetesBrut_ = (brut) => {
+const entetesBrut_ = (brut, lg) => {
   brut.getRange(1, 1, 1, COLONNES_BRUT_.length)
-    .setValues([COLONNES_BRUT_])
+    .setValues([entetesEn_(COLONNES_BRUT_, lg || LANGUE_DEFAUT_)])
     .setFontWeight('bold');
   brut.setFrozenRows(1);
   return brut;

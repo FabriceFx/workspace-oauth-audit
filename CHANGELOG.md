@@ -7,6 +7,63 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.4.0] - 2026-09-06
+
+> **Le constat qui dérange :** *Celui à qui l'on écrit n'a pas choisi la langue de l'outil — ni l'outil.*
+> On lui adresse un reproche poli à propos d'un accès qu'il a accordé, sans lui demander son avis. Le lui écrire dans une langue qu'il ne lit pas serait à la fois inefficace et discourtois. Cette version 1.4.0 traduit d'abord ce qui sort du classeur ; le classeur lui-même suivra.
+
+### Ajouté
+- **Réglages de langue** (`Langues.gs`) dans un nouvel onglet `Paramètres` : langue de l'outil, langue par défaut des courriels, et **règles par domaine**.
+- **La langue du courriel se décide par destinataire**, dans cet ordre : la colonne `Langue` du plan d'envoi, modifiable à la main ; sinon la règle du domaine ; sinon le défaut. Jamais déduite d'un nom ou d'un prénom.
+- **Dictionnaire à clés explicites**, avec substitution par `{nom}` plutôt que par concaténation — l'ordre des mots n'est pas le même d'une langue à l'autre. Une clé absente s'affiche entre chevrons dans le rendu, au lieu de produire un blanc que personne ne remarque. Le banc vérifie que **chaque clé existe dans les deux langues**.
+- **Courriel de sollicitation entièrement traduit**, y compris les sept règles de nommage : l'onglet `Modèle` porte désormais un jeu par langue, et le bloc anglais est ajouté à un classeur existant sans lui faire perdre ses amendements.
+- **Dates dans la langue du lecteur** : le français met le mois en minuscule et un ordinal au premier du mois, l'anglais capitalise et n'en met pas. Deux règles typographiques que seule la langue décide — d'où deux rendus, et non un format paramétré.
+- **Vue de consultation et fiche d'application traduites**, en suivant la langue de l'outil.
+
+### Non fait, et pourquoi
+- **Le classeur lui-même reste en français** : menu, dialogues, guide, noms d'onglets et en-têtes de colonnes. Ces derniers servent de clés de lecture en cinquante-trois endroits ; les traduire demande une couche de résolution acceptant les deux langues, faute de quoi un classeur commencé en français cesserait de fonctionner à la bascule. C'est la v1.5, et c'est un ordre de travail, pas un abandon.
+
+### Corrigé
+- **Collision de nom évitée avant tout déploiement** : le réglage s'appelait `parametres_`, nom déjà pris par l'aplatissement des paramètres d'un événement du journal. Deux sens, un seul nom global — le projet entier aurait cessé de se charger, et **toutes** les fonctions seraient devenues introuvables. Le contrôle par concaténation des `.gs`, ajouté en 1.2.1, l'a attrapé.
+
+---
+
+## [1.3.1] - 2026-09-06
+
+### Corrigé
+- **Les en-têtes de fichier annonçaient des versions fausses.** `Feuille.gs` disait « v0.2, enrichie en v0.4 » alors qu'il avait changé en 0.5, 0.6, 0.7 et 1.3 ; `Inventaire.gs` disait v0.6 après avoir été retouché en 1.1 ; deux fichiers n'annonçaient rien. C'était de l'état dupliqué, qui ne pouvait que dériver. Chaque en-tête dit désormais la version où le module est **apparu** — un fait qui ne change plus — et rien d'autre.
+- **La version du projet n'apparaissait nulle part dans le code déployé.** Un déploiement Apps Script sert une copie figée : sans numéro affiché, impossible de savoir ce qui tourne, et c'est exactement ce qui avait rendu le `doGet` introuvable incompréhensible. Une constante unique, `VERSION_`, est désormais montrée dans « À propos » — avec le rappel qu'un écart signifie qu'il faut créer une nouvelle version du déploiement — et en pied de la vue de consultation.
+- **La synchronisation est vérifiée, non promise.** Le banc d'essai compare `VERSION_` au contenu du fichier `VERSION`, contrôle que chaque en-tête porte une version d'introduction, et refuse tout en-tête qui prétendrait porter une version courante. Une version affichée et fausse serait pire que pas de version du tout.
+
+---
+
+## [1.3.0] - 2026-09-06
+
+> **Le constat qui dérange :** *Un menu rangé par étapes suppose qu'on sache où l'on en est. C'est précisément ce qu'on oublie.*
+> Collecter, suivre, solliciter : l'ordre était logique, et il déplaçait toute la charge sur l'utilisateur, qui devait tenir l'état de tête. Le journal a-t-il été relu depuis ? les profils sont-ils à jour ? reste-t-il un plan d'envoi en attente ? Le menu répond désormais lui-même.
+
+### Modifié
+- **La première entrée du menu nomme la prochaine chose à faire** : « Commencer : moissonner le journal », « Relever les jetons actifs », « Classer : 12 applications sans décision », « Terminer : 7 courriels à envoyer ». Elle explique pourquoi avant de lancer quoi que ce soit — un menu qui déciderait à votre place sans le dire serait pire que celui qu'il remplace.
+- **Le diagnostic se lit dans les onglets du classeur**, sans rien demander à Google et sans lire l'état des campagnes : `onOpen` est un déclencheur simple aux droits étroits, et il est enveloppé d'un `try` — s'il échoue, le menu apparaît quand même. Un outil sans menu est un outil perdu.
+- **On finit ce qu'on a commencé** : un plan de révocation ou de sollicitation en attente passe devant toute collecte manquante. Un plan préparé puis laissé en plan est ce qui se perd le plus facilement, rien ne le rappelle à personne.
+- **Le reste est rangé par intention** — Collecter les données, Écrire aux autorisants, Révoquer des accès — et non par étape du traitement. Les sous-menus « Suivre » et « Annuler » disparaissent : ils ne concernaient que les collectes, ils y sont rentrés.
+- **La numérotation ne subsiste que là où les gestes s'enchaînent vraiment** : préparer, essayer, envoyer.
+- Les chemins de menu ont été repris dans le `README`, le guide de démarrage et l'onglet `Guide`.
+
+### Corrigé
+- **« Où en sont les collectes ? » enchaînait deux dialogues, donc n'en montrait qu'un** — le second effaçait le premier sans prévenir. Les comptes rendus d'état et d'annulation sont devenus composables : ils écrivent, et c'est l'appelant qui décide quand afficher. Même correction pour « Arrêter les collectes ».
+
+---
+
+## [1.2.2] - 2026-09-06
+
+### Amélioré
+- **Les dates de la vue de consultation et de la fiche s'écrivent en français** : « 6 septembre 2026 », « 1er mai 2026 », « 6 septembre 2026 à 09 h 31 ». Une période entière est convertie d'un coup — « 29 mai 2026 → 5 septembre 2026 » — même noyée dans une phrase, sans qu'il faille savoir d'avance ce que la chaîne contient.
+- **Le classeur, lui, conserve `yyyy-MM-dd`**, et ce n'est pas une incohérence : c'est le seul format qui se trie correctement en tant que texte, et tout le reste de l'outil en dépend. La conversion n'intervient qu'à l'affichage, pour des pages destinées à des lecteurs qui ne trient rien. Le banc vérifie les deux : aucune date ISO ne subsiste sur la page publiée, et l'onglet Applications garde les siennes.
+- La ligne « Vue du » de la fiche devient « Observée du », plus juste pour des bornes relevées dans un journal.
+
+---
+
 ## [1.2.1] - 2026-09-06
 
 ### Corrigé

@@ -288,6 +288,9 @@ Modules pressentis, sur le découpage de la passerelle : `Journal` (Reports),
 | ✅ **1.0** | guide dans le classeur, guide de démarrage, fiche imprimable, menu réorganisé | le livrable |
 | ✅ **1.1** | révocation en plan puis application | on passe du constat à l'acte |
 | ✅ **1.2** | vue web de consultation, en lecture seule | il y a enfin quelque chose à montrer à qui n'a pas le classeur |
+| ✅ **1.3** | menu qui dit lui-même la prochaine étape | on ne se perd plus dans ses propres actions |
+| ✅ **1.4** | bilinguisme de ce qui sort du classeur — courriel, vue, fiche | on peut écrire à qui ne lit pas le français |
+| **1.5** | bilinguisme du classeur — menu, dialogues, guide, onglets et colonnes | l'outil lui-même se lit en anglais |
 | **2.0** | historisation au-delà des 6 mois, détection de dérive, nouvelle application signalée | la surveillance continue |
 
 La v0.1 est un script de quelques dizaines de lignes. Elle est là pour tuer le
@@ -322,6 +325,7 @@ un message qui le dit.
 | `Fiche.gs` | v1.0 — la fiche d'une application, imprimable |
 | `Revocation.gs` | v1.1 — révocation, en plan puis application |
 | `WebApp.gs` | v1.2 — vue de consultation, en lecture seule |
+| `Langues.gs` | v1.4 — réglages de langue et dictionnaire |
 | `banc/test.js` | banc d'essai hors Google, `node banc/test.js` |
 
 Tout se pilote depuis le menu **Applications tierces** du classeur. Depuis
@@ -681,6 +685,37 @@ rappelle aussi au lecteur qu'il est identifié.
 Le déploiement reste manuel — *Déployer > Nouveau déploiement > Application web*
 — et le menu donne le lien une fois que c'est fait.
 
+## Deux langues, deux publics qui n'ont rien à voir
+
+L'administrateur a **choisi** cet outil : il en accepte la langue, et un réglage
+unique lui suffit. Le destinataire d'un courriel de sollicitation, lui, n'a rien
+choisi — on lui écrit sans lui demander son avis, pour lui reprocher poliment un
+accès qu'il a accordé. Lui écrire dans une langue qu'il ne lit pas serait à la
+fois inefficace et discourtois.
+
+**La langue des courriels se règle donc par destinataire**, dans cet ordre : la
+colonne `Langue` du plan d'envoi, qui se corrige à la main ; sinon la règle de
+domaine de l'onglet `Paramètres` ; sinon le défaut. Jamais une déduction à partir
+d'un nom ou d'un prénom.
+
+L'onglet `Modèle` porte **un jeu de règles de nommage par langue**. Un classeur
+créé avant cette version n'a que le bloc français : le bloc anglais lui est
+ajouté à la première lecture, plutôt que d'obliger à recréer l'onglet et à perdre
+les amendements déjà faits.
+
+### Ce qui est traduit en v1.4, et ce qui ne l'est pas
+
+Traduit : **ce qui sort du classeur** — le courriel de sollicitation, la vue de
+consultation, la fiche d'application. Ce sont les surfaces lues par des gens qui
+n'ont pas choisi l'outil.
+
+Pas encore : **le classeur lui-même** — menu, dialogues, guide, noms d'onglets et
+d'en-têtes de colonnes. Ce n'est pas un oubli mais un ordre de travail. Les noms
+d'onglets et les en-têtes servent de **clés de lecture en cinquante-trois
+endroits** : les traduire demande une couche de résolution qui accepte les deux
+langues, sans quoi un classeur commencé en français cesserait de fonctionner le
+jour où l'on bascule. C'est la v1.5.
+
 ## Ce que le journal permet de dire, et ce qu'il ne permet pas
 
 L'onglet Autorisants porte une colonne « État présumé ». Le mot est choisi : le
@@ -776,12 +811,12 @@ Their cross-referencing reveals the most critical finding: **active tokens with 
 
 ### Typical Workflow
 
-1. **Harvest audit log (180 days)**: *Applications tierces > 1. Collecter > Moissonner le journal — 180 jours*. Reads the OAuth audit log and generates the synthesis tabs.
-2. **Collect account profiles**: *1. Collecter > Relever les profils des comptes*. Identifies admins, delegated admins, and suspended users.
-3. **Inventory active tokens**: *1. Collecter > Inventorier les jetons actifs*. Exhaustive per-account token census revealing dormant accesses older than 6 months.
+1. **Harvest audit log (180 days)**: *Applications tierces > Collecter les données > Moissonner le journal d'audit — 180 jours*. Reads the OAuth audit log and generates the synthesis tabs.
+2. **Collect account profiles**: *Collecter les données > Relever les profils des comptes*. Identifies admins, delegated admins, and suspended users.
+3. **Inventory active tokens**: *Collecter les données > Relever les jetons actifs*. Exhaustive per-account token census revealing dormant accesses older than 6 months.
 4. **Classify & decide**: Review apps in the *À instruire* and *Décisions* tabs. Assign statuses (`approuvée`, `tolérée`, `à instruire`, `à bloquer`, `bloquée`) and expiration review dates (`Revoir avant`).
-5. **Campaign emails**: *3. Solliciter > Préparer les sollicitations*, review the drafted plan, then send emails to employees asking for justification.
-6. **Revoke blocked apps**: *4. Révoquer > Préparer les révocations*, review candidate tokens, and apply revocations with built-in safety ceilings.
+5. **Campaign emails**: *Écrire aux autorisants > 1. Préparer le plan d'envoi*, review the drafted plan, then send emails to employees asking for justification.
+6. **Revoke blocked apps**: *Révoquer des accès > 1. Préparer le plan de révocation*, review candidate tokens, and apply revocations with built-in safety ceilings.
 
 ### Architecture & Security Highlights
 

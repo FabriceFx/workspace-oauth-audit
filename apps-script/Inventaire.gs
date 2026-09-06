@@ -1,5 +1,5 @@
 /**
- * Inventaire des jetons actifs — v0.6.
+ * Inventaire des jetons actifs — introduit en v0.6.
  *
  * Le journal dit ce qui s'est passé sur 180 jours. L'inventaire dit ce qui
  * existe aujourd'hui. Aucun des deux ne remplace l'autre, et c'est leur écart
@@ -44,7 +44,7 @@ const CLE_INVENTAIRE_ = 'inventaire';
 const FONCTION_REPRISE_INVENTAIRE_ = 'reprendreInventaire';
 
 const COLONNES_JETONS_ = [
-  'compte', 'client_id', 'application', 'portees', 'anonyme', 'natif', 'releve_le'
+  'compteMin', 'clientId', 'applicationMin', 'porteesMin', 'anonyme', 'natif', 'releveLe'
 ];
 
 /** Comptes traités entre deux écritures : compromis entre appels et pertes. */
@@ -78,10 +78,10 @@ const programmerRepriseInventaire_ = () => {
 
 /** Phase 1 : recenser le parc. Une colonne, une adresse par ligne. */
 const recenserParc_ = (classeur, etat, t0) => {
-  let f = classeur.getSheetByName(ONGLET_PARC_);
+  let f = chercherOnglet_(classeur, 'parc');
   if (!f) {
-    f = classeur.insertSheet(ONGLET_PARC_);
-    f.getRange(1, 1).setValue('compte').setFontWeight('bold');
+    f = classeur.insertSheet(nomOnglet_('parc', reglages_(classeur).interface));
+    f.getRange(1, 1).setValue(nomColonne_('compteMin', LANGUE_DEFAUT_)).setFontWeight('bold');
     f.hideSheet();
   }
   do {
@@ -110,8 +110,8 @@ const recenserParc_ = (classeur, etat, t0) => {
 
 /** Phase 2 : parcourir le parc, relever les jetons de chacun. */
 const releverJetons_ = (classeur, etat, t0) => {
-  const parc = classeur.getSheetByName(ONGLET_PARC_);
-  const jetons = classeur.getSheetByName(ONGLET_JETONS_);
+  const parc = chercherOnglet_(classeur, 'parc');
+  const jetons = chercherOnglet_(classeur, 'jetons');
   const dernier = parc.getLastRow();
   const aujourdhui = jour_(new Date());
 
@@ -170,9 +170,9 @@ function inventorierJetons() {
     };
     // On repart d'un relevé neuf : mêler deux inventaires ferait passer pour
     // actifs des jetons révoqués entre-temps.
-    const ancien = classeur.getSheetByName(ONGLET_PARC_);
+    const ancien = chercherOnglet_(classeur, 'parc');
     if (ancien) classeur.deleteSheet(ancien);
-    const brut = onglet_(classeur, ONGLET_JETONS_, COLONNES_JETONS_);
+    const brut = onglet_(classeur, 'jetons', COLONNES_JETONS_, reglages_(classeur).interface);
     brut.hideSheet();
     dire_('Nouvel inventaire — le parc va être recensé, puis parcouru compte par compte.');
   }
@@ -219,18 +219,18 @@ function inventorierJetons() {
   vider_('Inventaire terminé');
   effacerEtatInventaire_();
 
-  if (classeur.getSheetByName(ONGLET_BRUT_)) agreger_(classeur, null);
+  if (chercherOnglet_(classeur, 'brut')) agreger_(classeur, null);
 }
 
 function reprendreInventaire() {
   inventorierJetons();
 }
 
-function etatInventaire() {
+const direEtatInventaire_ = () => {
   const etat = lireEtatInventaire_();
   if (!etat) {
     const classeur = classeurCourant_();
-    const f = classeur.getSheetByName(ONGLET_JETONS_);
+    const f = chercherOnglet_(classeur, 'jetons');
     dire_(f && f.getLastRow() > 1
       ? `Aucun inventaire en cours. Dernier relevé : ${f.getLastRow() - 1} jetons.`
       : 'Aucun inventaire en cours, et aucun relevé disponible.');
@@ -241,10 +241,14 @@ function etatInventaire() {
       + `${etat.jetons} jetons, ${etat.reprises} reprise(s)`);
     if (etat.erreurs) dire_(`  erreurs     ${etat.erreurs}`);
   }
+};
+
+function etatInventaire() {
+  direEtatInventaire_();
   vider_('Où en est l\'inventaire');
 }
 
-function annulerInventaire() {
+const direAnnulerInventaire_ = () => {
   const etat = lireEtatInventaire_();
   retirerDeclencheursInventaire_();
   effacerEtatInventaire_();
@@ -252,6 +256,10 @@ function annulerInventaire() {
     ? 'Inventaire abandonné. Le relevé partiel reste, mais il est incomplet : ne'
       + ' l\'interprétez pas comme un inventaire.'
     : 'Aucun inventaire en cours ; déclencheurs retirés par précaution.');
+};
+
+function annulerInventaire() {
+  direAnnulerInventaire_();
   vider_('Inventaire annulé');
 }
 
@@ -265,15 +273,15 @@ function annulerInventaire() {
  * passer tout le parc pour révoqué.
  */
 const lireJetons_ = (classeur) => {
-  const f = classeur.getSheetByName(ONGLET_JETONS_);
+  const f = chercherOnglet_(classeur, 'jetons');
   if (!f || f.getLastRow() < 2) return null;
   const valeurs = f.getDataRange().getValues();
   const e = valeurs[0];
-  const iCompte = e.indexOf('compte');
-  const iCid = e.indexOf('client_id');
-  const iApp = e.indexOf('application');
-  const iPortees = e.indexOf('portees');
-  const iAnonyme = e.indexOf('anonyme');
+  const iCompte = colonne_(e, 'compteMin');
+  const iCid = colonne_(e, 'clientId');
+  const iApp = colonne_(e, 'applicationMin');
+  const iPortees = colonne_(e, 'porteesMin');
+  const iAnonyme = colonne_(e, 'anonyme');
 
   const jetons = new Map();
   for (const l of valeurs.slice(1)) {
@@ -292,8 +300,8 @@ const lireJetons_ = (classeur) => {
 };
 
 const COLONNES_DORMANTS_ = [
-  'Compte', 'Domaine', 'Profil', 'Application', 'client_id', 'Niveau max',
-  'Administration', 'Portées'
+  'compte', 'domaine', 'profil', 'application', 'clientId', 'niveauMax',
+  'administration', 'portees'
 ];
 
 /**
@@ -304,8 +312,8 @@ const COLONNES_DORMANTS_ = [
  * C'est la seule chose que ni le journal ni l'inventaire ne pouvaient dire
  * seuls, et c'est ce qui justifiait de dépenser 8 500 requêtes.
  */
-const ecrireDormants_ = (classeur, apps, couples) => {
-  const f = onglet_(classeur, 'Dormants', COLONNES_DORMANTS_);
+const ecrireDormants_ = (classeur, apps, couples, lg) => {
+  const f = onglet_(classeur, 'dormants', COLONNES_DORMANTS_, lg);
   const lignes = [...couples.values()]
     .filter((c) => c.jetonActif && !c.autorisations)
     .map((c) => {

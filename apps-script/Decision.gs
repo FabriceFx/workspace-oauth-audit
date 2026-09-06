@@ -1,5 +1,5 @@
 /**
- * Référentiel des décisions — v0.4.
+ * Référentiel des décisions — introduit en v0.4.
  *
  * Le classement des applications ne vit pas dans le rapport : il vit ici. Tout
  * le reste du classeur est reconstruit à chaque moissonnage, cet onglet-là ne
@@ -22,8 +22,8 @@
 const ONGLET_DECISIONS_ = 'Décisions';
 
 const COLONNES_DECISIONS_ = [
-  'client_id', 'Application', 'Statut', 'Motif', 'Décidé par', 'Le',
-  'Revoir avant', 'Autorisants', 'Vue la première fois'
+  'clientId', 'application', 'statut', 'motif', 'decidePar', 'le',
+  'revoirAvant', 'autorisants', 'vuePremiereFois'
 ];
 
 /**
@@ -43,13 +43,21 @@ const STATUTS_ = ['approuvée', 'tolérée', 'à instruire', 'à bloquer', 'bloq
 /** Statuts qui dispensent d'écrire aux autorisants. */
 const STATUTS_SILENCIEUX_ = new Set(['approuvée', 'tolérée']);
 
-const feuilleDecisions_ = (classeur) => {
-  const existante = classeur.getSheetByName(ONGLET_DECISIONS_);
-  if (existante) return existante;
-  const f = classeur.insertSheet(ONGLET_DECISIONS_);
-  f.getRange(1, 1, 1, COLONNES_DECISIONS_.length)
-    .setValues([COLONNES_DECISIONS_])
-    .setFontWeight('bold');
+/**
+ * L'onglet des décisions n'est jamais reconstruit — mais ses en-têtes peuvent
+ * avoir été écrits dans une autre langue. On les réaligne alors sur la langue
+ * courante sans toucher aux lignes : le classement survit à la bascule.
+ */
+const feuilleDecisions_ = (classeur, lg) => {
+  const langue = lg || LANGUE_DEFAUT_;
+  const existante = ongletCanonique_(classeur, 'decisions', langue);
+  const entetes = entetesEn_(COLONNES_DECISIONS_, langue);
+  if (existante) {
+    existante.getRange(1, 1, 1, entetes.length).setValues([entetes]).setFontWeight('bold');
+    return existante;
+  }
+  const f = classeur.insertSheet(nomOnglet_('decisions', langue));
+  f.getRange(1, 1, 1, entetes.length).setValues([entetes]).setFontWeight('bold');
   f.setFrozenRows(1);
   return f;
 };
@@ -62,7 +70,7 @@ const poserValidationStatut_ = (f) => {
     .requireValueInList(STATUTS_, true)
     .setAllowInvalid(false)
     .build();
-  f.getRange(2, COLONNES_DECISIONS_.indexOf('Statut') + 1, lignes, 1)
+  f.getRange(2, COLONNES_DECISIONS_.indexOf('statut') + 1, lignes, 1)
     .setDataValidation(regle);
 };
 
@@ -71,17 +79,17 @@ const poserValidationStatut_ = (f) => {
  * Une décision dont l'échéance est passée est lue, mais n'est plus en vigueur.
  */
 const lireDecisions_ = (classeur) => {
-  const f = classeur.getSheetByName(ONGLET_DECISIONS_);
+  const f = chercherOnglet_(classeur, 'decisions');
   const decisions = new Map();
   if (!f || f.getLastRow() < 2) return decisions;
   const valeurs = f.getDataRange().getValues();
   const e = valeurs[0];
-  const iCid = e.indexOf('client_id');
-  const iStatut = e.indexOf('Statut');
-  const iMotif = e.indexOf('Motif');
-  const iPar = e.indexOf('Décidé par');
-  const iLe = e.indexOf('Le');
-  const iRevoir = e.indexOf('Revoir avant');
+  const iCid = colonne_(e, 'clientId');
+  const iStatut = colonne_(e, 'statut');
+  const iMotif = colonne_(e, 'motif');
+  const iPar = colonne_(e, 'decidePar');
+  const iLe = colonne_(e, 'le');
+  const iRevoir = colonne_(e, 'revoirAvant');
   const aujourdhui = jour_(new Date());
 
   for (const l of valeurs.slice(1)) {
@@ -118,14 +126,15 @@ const decisionsSilencieuses_ = (classeur) => {
  * rafraîchit les seules colonnes descriptives — nom, nombre d'autorisants,
  * première apparition. Le jugement, lui, n'est jamais réécrit.
  */
-const synchroniserDecisions_ = (classeur, apps) => {
-  const f = feuilleDecisions_(classeur);
-  const valeurs = f.getLastRow() >= 1 ? f.getDataRange().getValues() : [COLONNES_DECISIONS_];
+const synchroniserDecisions_ = (classeur, apps, lg) => {
+  const f = feuilleDecisions_(classeur, lg);
+  const valeurs = f.getLastRow() >= 1 ? f.getDataRange().getValues()
+    : [entetesEn_(COLONNES_DECISIONS_, lg || LANGUE_DEFAUT_)];
   const e = valeurs[0];
-  const iCid = e.indexOf('client_id');
-  const iApp = e.indexOf('Application');
-  const iAut = e.indexOf('Autorisants');
-  const iVue = e.indexOf('Vue la première fois');
+  const iCid = colonne_(e, 'clientId');
+  const iApp = colonne_(e, 'application');
+  const iAut = colonne_(e, 'autorisants');
+  const iVue = colonne_(e, 'vuePremiereFois');
 
   const lignesExistantes = new Map();
   valeurs.slice(1).forEach((l, i) => {

@@ -1,5 +1,5 @@
 /**
- * Le guide, dans le classeur — v1.0.
+ * Le guide, dans le classeur — introduit en v1.0.
  *
  * L'outil s'adresse à des administrateurs avertis. Averti ne veut pas dire au
  * fait de ce projet-ci : la différence entre le journal et l'inventaire, la
@@ -29,11 +29,14 @@ const GUIDE_ = [
   ]],
 
   ['Le déroulé, une fois pour toutes', [
+    'Si vous ne savez plus où vous en êtes, la PREMIÈRE ENTRÉE DU MENU vous le '
+    + 'dit : elle nomme la prochaine chose à faire, l\'explique, et la lance. Le '
+    + 'reste de ce chapitre est là pour quand vous voulez reprendre la main.',
     '1. « Moissonner le journal — 180 jours » : lit le journal d\'audit OAuth du '
     + 'tenant et remplit les onglets. C\'est le point de départ, et il est peu coûteux.',
     '2. « Relever les profils des comptes » : va chercher dans l\'annuaire qui est '
     + 'administrateur, délégué ou suspendu. Rapide, et cela change la lecture.',
-    '3. « Inventorier les jetons actifs » : interroge chaque compte, un par un. '
+    '3. « Relever les jetons actifs » : interroge chaque compte, un par un. '
     + 'C\'est long — comptez plusieurs reprises automatiques — et c\'est ce qui '
     + 'révèle les accès accordés il y a plus de six mois.',
     '4. Classez dans l\'onglet Décisions, en commençant par l\'onglet À instruire.',
@@ -143,7 +146,7 @@ const GUIDE_ = [
 
 function guide() {
   const classeur = classeurCourant_();
-  const f = onglet_(classeur, ONGLET_GUIDE_, ['Guide d\'utilisation', '']);
+  const f = onglet_(classeur, 'guide', ['guide', 'valeur'], reglages_(classeur).interface);
 
   const lignes = [];
   for (const [titre, paragraphes] of GUIDE_) {
@@ -171,7 +174,7 @@ function aide() {
   dire_('');
   dire_('  1. Moissonner le journal — 180 jours');
   dire_('  2. Relever les profils des comptes');
-  dire_('  3. Inventorier les jetons actifs   (long, reprend tout seul)');
+  dire_('  3. Relever les jetons actifs        (long, reprend tout seul)');
   dire_('  4. Classer, en partant de l\'onglet « À instruire »');
   dire_('  5. Préparer les sollicitations, relire, envoyer');
   dire_('');
@@ -189,6 +192,6 @@ function aide() {
   dire_('  L\'onglet « Décisions » est le seul que rien ne réécrit :');
   dire_('  c\'est là que votre travail de classement s\'accumule.');
   dire_('');
-  dire_('Le guide complet est dans l\'onglet « Guide » — menu > Afficher le guide.');
+  dire_('Le guide complet est dans l\'onglet « Guide » — menu > Guide complet.');
   vider_('Aide');
 }

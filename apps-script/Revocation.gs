@@ -1,5 +1,5 @@
 /**
- * Révocation des jetons — v1.1.
+ * Révocation des jetons — introduite en v1.1.
  *
  * C'est la seule partie de l'outil qui détruit quelque chose. Elle est donc
  * bâtie autour de trois refus.
@@ -42,9 +42,8 @@
 const ONGLET_REVOCATIONS_ = 'Révocations';
 
 const COLONNES_REVOCATIONS_ = [
-  'Compte', 'Domaine', 'Profil', 'Application', 'client_id', 'Portées',
-  'Décidé par', 'Motif de la décision', 'État', 'Préparé le', 'Appliqué le',
-  'Résultat'
+  'compte', 'domaine', 'profil', 'application', 'clientId', 'portees',
+  'decidePar', 'motifDecision', 'etat', 'prepareLe', 'appliqueLe', 'resultat'
 ];
 
 /** Statut du référentiel qui, seul, autorise une révocation. */
@@ -89,7 +88,7 @@ function preparerRevocations() {
   }
   lignes.sort((x, y) => (x[3] < y[3] ? -1 : x[3] > y[3] ? 1 : (x[0] < y[0] ? -1 : 1)));
 
-  const f = onglet_(classeur, ONGLET_REVOCATIONS_, COLONNES_REVOCATIONS_);
+  const f = onglet_(classeur, 'revocations', COLONNES_REVOCATIONS_, reglages_(classeur).interface);
   poser_(f, lignes, true);
   classeur.setActiveSheet(f);
 
@@ -124,7 +123,7 @@ function preparerRevocations() {
 
 function appliquerRevocations() {
   const classeur = classeurCourant_();
-  const f = classeur.getSheetByName(ONGLET_REVOCATIONS_);
+  const f = chercherOnglet_(classeur, 'revocations');
   if (!f || f.getLastRow() < 2) {
     dire_('Aucun plan à appliquer. Préparez-le d\'abord.');
     vider_('Rien à appliquer');
@@ -132,15 +131,15 @@ function appliquerRevocations() {
   }
   const valeurs = f.getDataRange().getValues();
   const e = valeurs[0];
-  const iCompte = e.indexOf('Compte');
-  const iCid = e.indexOf('client_id');
-  const iNom = e.indexOf('Application');
-  const iEtat = e.indexOf('État');
-  const iApplique = e.indexOf('Appliqué le');
-  const iResultat = e.indexOf('Résultat');
+  const iCompte = colonne_(e, 'compte');
+  const iCid = colonne_(e, 'clientId');
+  const iNom = colonne_(e, 'application');
+  const iEtat = colonne_(e, 'etat');
+  const iApplique = colonne_(e, 'appliqueLe');
+  const iResultat = colonne_(e, 'resultat');
 
   const cibles = [];
-  const iPrepare = e.indexOf('Préparé le');
+  const iPrepare = colonne_(e, 'prepareLe');
   valeurs.slice(1).forEach((l, i) => {
     if (String(l[iEtat]).trim() !== 'à révoquer') return;
     const compte = String(l[iCompte]).trim();

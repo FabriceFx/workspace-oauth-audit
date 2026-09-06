@@ -1,5 +1,5 @@
 /**
- * Moissonnage du journal OAuth — v0.2.
+ * Moissonnage du journal OAuth — introduit en v0.2.
  *
  * Lit l'application « token » de la Reports API et écrit un événement par ligne
  * dans l'onglet brut du classeur, puis agrège (voir Feuille.gs).
@@ -182,7 +182,12 @@ function reprendreMoisson() {
   moissonner();
 }
 
-function etatMoisson() {
+/**
+ * Ces deux-là ne vident pas le compte rendu : c'est l'appelant qui décide.
+ * `vider_` ouvre un dialogue, et deux dialogues enchaînés dans une même
+ * exécution n'en montrent qu'un — le second efface le premier sans prévenir.
+ */
+const direEtatMoisson_ = () => {
   const etat = lireEtat_();
   if (!etat) {
     dire_('Aucune campagne en cours.');
@@ -193,15 +198,23 @@ function etatMoisson() {
       + `${etat.pages} pages, ${etat.reprises} reprise(s)`);
     dire_(`  reste       ${etat.pageToken ? 'oui' : 'non — agrégation en attente'}`);
   }
+};
+
+function etatMoisson() {
+  direEtatMoisson_();
   vider_('Où en est la campagne');
 }
 
-function annulerMoisson() {
+const direAnnulerMoisson_ = () => {
   const etat = lireEtat_();
   retirerDeclencheurs_();
   effacerEtat_();
   dire_(etat
     ? 'Campagne abandonnée. Le contenu déjà moissonné reste dans l\'onglet brut.'
     : 'Aucune campagne en cours ; déclencheurs retirés par précaution.');
+};
+
+function annulerMoisson() {
+  direAnnulerMoisson_();
   vider_('Campagne annulée');
 }

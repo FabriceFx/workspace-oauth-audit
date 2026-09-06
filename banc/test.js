@@ -131,9 +131,10 @@ const sandbox = {
   AdminDirectory: null
 };
 vm.createContext(sandbox);
-for (const f of ['Commun.gs', 'Journal.gs', 'Decision.gs', 'Comptes.gs',
+for (const f of ['Commun.gs', 'Langues.gs', 'Journal.gs', 'Decision.gs', 'Comptes.gs',
   'Portees.gs', 'Volumetrie.gs', 'Inventaire.gs', 'Feuille.gs',
-  'Sollicitation.gs', 'Revocation.gs', 'Guide.gs', 'Fiche.gs', 'WebApp.gs']) {
+  'Sollicitation.gs', 'Revocation.gs', 'Guide.gs', 'Fiche.gs', 'WebApp.gs',
+  'Menu.gs']) {
   vm.runInContext(fs.readFileSync(P + f, 'utf8'), sandbox, { filename: f });
 }
 // Les déclarations `const` de portée globale ne deviennent pas des propriétés de
@@ -144,21 +145,29 @@ const {
   brutCourant_, etatPresume_, COLONNES_BRUT_,
   lireModele_, grouperAutorisants_, corpsCourriel_,
   lireDecisions_, decisionsSilencieuses_, COLONNES_DECISIONS_, libelleProfil_,
-  jour_, enClair_, nettoyerFeuilleParDefaut_, chargerCatalogue_, classerPortee_, pireNiveau_, evaluer_,
+  jour_, enClair_, nettoyerFeuilleParDefaut_, entetesEn_, colonne_, chargerCatalogue_, classerPortee_, pireNiveau_, evaluer_,
   lireJetons_, etatJeton_, COLONNES_JETONS_, palmares_, SEUIL_VOLUME_30J_,
   GUIDE_, dossier_, ficheHtml_,
   preparerRevocations, COLONNES_REVOCATIONS_, STATUT_REVOCABLE_,
-  pageAccueil_, pageFiche_
+  pageAccueil_, pageFiche_, dateLisible_, datesLisibles_,
+  etatDuTravail_, prochaineEtape_, VERSION_, ONGLETS_, COLONNES_,
+  nomOnglet_, chercherOnglet_, ongletCanonique_,
+  t_, TEXTES_, LANGUES_, langueValide_, langueDe_, reglages_, enClairLangue_,
+  dateLisibleLangue_
 } = Object.fromEntries([
   'famille_', 'domaine_', 'portees_', 'octets_', 'classer_', 'lignesDe_',
   'agreger_', 'brutCourant_', 'etatPresume_', 'COLONNES_BRUT_',
   'lireModele_', 'grouperAutorisants_', 'corpsCourriel_',
   'lireDecisions_', 'decisionsSilencieuses_', 'COLONNES_DECISIONS_', 'libelleProfil_',
-  'jour_', 'enClair_', 'nettoyerFeuilleParDefaut_', 'chargerCatalogue_', 'classerPortee_', 'pireNiveau_', 'evaluer_',
+  'jour_', 'enClair_', 'nettoyerFeuilleParDefaut_', 'entetesEn_', 'colonne_', 'chargerCatalogue_', 'classerPortee_', 'pireNiveau_', 'evaluer_',
   'lireJetons_', 'etatJeton_', 'COLONNES_JETONS_', 'palmares_', 'SEUIL_VOLUME_30J_',
   'GUIDE_', 'dossier_', 'ficheHtml_',
   'preparerRevocations', 'COLONNES_REVOCATIONS_', 'STATUT_REVOCABLE_',
-  'pageAccueil_', 'pageFiche_'
+  'pageAccueil_', 'pageFiche_', 'dateLisible_', 'datesLisibles_',
+  'etatDuTravail_', 'prochaineEtape_', 'VERSION_', 'ONGLETS_', 'COLONNES_',
+  'nomOnglet_', 'chercherOnglet_', 'ongletCanonique_',
+  't_', 'TEXTES_', 'LANGUES_', 'langueValide_', 'langueDe_', 'reglages_',
+  'enClairLangue_', 'dateLisibleLangue_'
 ].map((n) => [n, pris(n)]));
 
 let echecs = 0;
@@ -242,6 +251,88 @@ verifier('avec son compte', cumul.motifs.includes('1 compte(s) à privilèges (+
 verifier('un seul autorisant ne pèse pas',
   evaluer_(appFictive({ autorisants: new Set(['a@b.fr']) })).points, 0);
 
+console.log('\nVersion — un seul numéro, et il doit être vrai');
+// Une version affichée et fausse est pire que pas de version : un déploiement
+// Apps Script sert une copie figée, et c'est le seul moyen de savoir laquelle.
+const versionDeposee = fs.readFileSync(path.join(__dirname, '..', 'VERSION'), 'utf8').trim();
+verifier('la constante du code vaut le fichier VERSION', VERSION_, versionDeposee);
+verifier('et elle est bien formée', /^\d+\.\d+\.\d+$/.test(VERSION_), true);
+
+// Les en-têtes annoncent une version d'INTRODUCTION, jamais une version courante.
+const entetesFichiers = fs.readdirSync(P).filter((f) => f.endsWith('.gs'))
+  .map((f) => ({ f, ligne: fs.readFileSync(P + f, 'utf8').split('\n')[1] }));
+verifier('tous les fichiers ont un en-tête', entetesFichiers.length, 16);
+const sansIntroduction = entetesFichiers
+  .filter((e) => !/introduit\w* en v\d+\.\d+/.test(e.ligne));
+verifier('chacun dit quand il est apparu',
+  sansIntroduction.map((e) => e.f), []);
+const pretendantEtreAJour = entetesFichiers
+  .filter((e) => /— v\d+\.\d+\.?$/.test(e.ligne.trim()));
+verifier('aucun ne prétend porter une version courante',
+  pretendantEtreAJour.map((e) => e.f), []);
+
+console.log('\nBascule de langue — un classeur français reste lisible');
+// C'est LE risque du bilinguisme : les noms d'onglets et d'en-têtes servent de
+// clés de lecture. Un classeur créé en français doit rester lisible en anglais,
+// et l'onglet Décisions — que rien ne reconstruit — ne doit jamais être doublé.
+const bilingue = (table) => Object.keys(table)
+  .filter((id) => LANGUES_.some((l) => !table[id][l]));
+verifier('chaque onglet a un nom dans les deux langues', bilingue(ONGLETS_), []);
+verifier('chaque colonne aussi', bilingue(COLONNES_), []);
+
+const enTetesFr = entetesEn_(['clientId', 'statut', 'revoirAvant'], 'fr');
+const enTetesEn = entetesEn_(['clientId', 'statut', 'revoirAvant'], 'en');
+verifier('les en-têtes diffèrent bien', enTetesFr[1] !== enTetesEn[1], true);
+verifier('le résolveur lit les en-têtes français', colonne_(enTetesFr, 'statut'), 1);
+verifier('… et les anglais', colonne_(enTetesEn, 'statut'), 1);
+verifier('une colonne inconnue rend -1', colonne_(enTetesFr, 'inventee'), -1);
+
+const bascule = new FauxClasseur(['Décisions', 'Synthèse']);
+bascule.getSheetByName('Décisions').getRange(1, 1, 2, 2)
+  .setValues([['client_id', 'Statut'], ['cidX', 'approuvée']]);
+verifier('on retrouve l\'onglet sous son nom français',
+  Boolean(chercherOnglet_(bascule, 'decisions')), true);
+const renomme = ongletCanonique_(bascule, 'decisions', 'en');
+verifier('il est RENOMMÉ, pas doublé', renomme.getName(), 'Decisions');
+verifier('et le classeur n\'a pas gagné d\'onglet', bascule.getSheets().length, 2);
+verifier('son contenu est intact', renomme.cells[1][1], 'approuvée');
+verifier('on le retrouve ensuite sous son nom anglais',
+  chercherOnglet_(bascule, 'decisions').getName(), 'Decisions');
+verifier('et le nom français reste reconnu',
+  nomOnglet_('decisions', 'fr'), 'Décisions');
+
+console.log('\nLangues — le dictionnaire tient ses promesses');
+const cles = Object.keys(TEXTES_);
+verifier('le dictionnaire n\'est pas vide', cles.length > 60, true);
+const incompletes = cles.filter((c) => LANGUES_.some((l) => !TEXTES_[c][l]));
+verifier('chaque clé existe dans les deux langues', incompletes, []);
+verifier('une clé absente se voit dans le rendu', t_('cle.inventee', 'fr'), '«cle.inventee»');
+verifier('les substitutions se font par nom',
+  t_('vue.premieres', 'fr', { n: 40, total: 212 }),
+  'Les 40 premières sur 212. La liste complète est dans le classeur.');
+verifier('… dans les deux langues',
+  t_('vue.premieres', 'en', { n: 40, total: 212 }),
+  'The first 40 of 212. The full list is in the spreadsheet.');
+
+console.log('\nLangues — la langue du destinataire, pas celle de l\'outil');
+verifier('une langue inconnue retombe sur le défaut', langueValide_('de'), 'fr');
+verifier('la casse ne compte pas', langueValide_(' EN '), 'en');
+const reg = { courriels: 'fr', parDomaine: new Map([['filiale.co.uk', 'en']]) };
+verifier('la règle de domaine décide', langueDe_('bob@filiale.co.uk', reg), 'en');
+verifier('sinon le défaut s\'applique', langueDe_('alice@exemple.fr', reg), 'fr');
+
+console.log('\nLangues — les accès dits à qui les lit');
+verifier('en français', enClairLangue_(['drive', 'admin'], 'fr'),
+  'vos fichiers Drive et l\'administration du domaine');
+verifier('en anglais', enClairLangue_(['drive', 'admin'], 'en'),
+  'your Drive files and domain administration');
+verifier('une famille inconnue reste identifiable',
+  enClairLangue_(['zzz'], 'en'), 'zzz (Google service)');
+verifier('les dates suivent la langue',
+  dateLisibleLangue_('2026-05-01', 'en'), '1 May 2026');
+verifier('… et le français garde son ordinal',
+  dateLisibleLangue_('2026-05-01', 'fr'), '1er mai 2026');
+
 console.log('\nFonctions pures');
 verifier('famille_ drive', famille_(`${J}drive.readonly`), 'drive');
 verifier('famille_ admin', famille_(`${J}admin.directory.user.security`), 'admin');
@@ -271,8 +362,9 @@ classeurActif = new FauxClasseur(['Feuille 1']);
 let brut = brutCourant_(classeurActif);
 verifier('la feuille par défaut est renommée', brut.getName(), '_Brut');
 verifier('aucune feuille orpheline ajoutée', classeurActif.getSheets().length, 1);
-verifier('en-têtes posés', brut.getRange(1, 1, 1, COLONNES_BRUT_.length).getValues()[0],
-  COLONNES_BRUT_);
+verifier('en-têtes posés en français',
+  brut.getRange(1, 1, 1, COLONNES_BRUT_.length).getValues()[0],
+  entetesEn_(COLONNES_BRUT_, 'fr'));
 verifier('appel suivant : même onglet', brutCourant_(classeurActif).getName(), '_Brut');
 
 classeurActif = new FauxClasseur(['Notes', 'Autre']);
@@ -413,9 +505,9 @@ const dec = classeurActif.getSheetByName('Décisions');
 verifier('les applications sont inscrites au référentiel', dec.getLastRow() - 1, 2);
 verifier('et sans statut au départ', notebook[2], 'non classée');
 
-const iStatut = COLONNES_DECISIONS_.indexOf('Statut') + 1;
-const iMotif = COLONNES_DECISIONS_.indexOf('Motif') + 1;
-const iRevoir = COLONNES_DECISIONS_.indexOf('Revoir avant') + 1;
+const iStatut = COLONNES_DECISIONS_.indexOf('statut') + 1;
+const iMotif = COLONNES_DECISIONS_.indexOf('motif') + 1;
+const iRevoir = COLONNES_DECISIONS_.indexOf('revoirAvant') + 1;
 const ligneNotebook = dec.cells.slice(1).findIndex((r) => r[0] === 'cid1') + 2;
 dec.getRange(ligneNotebook, iStatut).setValue('approuvée');
 dec.getRange(ligneNotebook, iMotif).setValue('Outil validé par le RSSI');
@@ -499,7 +591,7 @@ console.log('\nInventaire — croisé avec le journal');
 // a autorisé « Vieil outil », il y a plus de six mois.
 const releve = classeurActif.insertSheet('_Jetons');
 releve.getRange(1, 1, 3, COLONNES_JETONS_.length).setValues([
-  COLONNES_JETONS_,
+  entetesEn_(COLONNES_JETONS_, 'fr'),
   ['bob@exemple.fr', 'cid1', 'NotebookLM', `${J}drive.readonly`, '', '', '2026-09-06'],
   ['dora@exemple.fr', 'cidZ', 'Vieil outil', `${J}gmail.readonly`, '', '', '2026-09-06']
 ]);
@@ -543,9 +635,12 @@ console.log('\nSollicitation — le référentiel');
 const modele = lireModele_(classeurActif);
 verifier('objet lu', String(modele.params.Objet).startsWith('Applications tierces'), true);
 verifier('délai lu', modele.params['Délai de réponse (jours)'], 15);
-verifier('règles séparées des paramètres', modele.regles.length, 7);
+verifier('règles françaises séparées des paramètres', modele.regles.fr.length, 7);
+verifier('règles anglaises aussi', modele.regles.en.length, 7);
 verifier('la première règle vise les projets sans titre',
-  modele.regles[0].includes('Projet sans titre'), true);
+  modele.regles.fr[0].includes('Projet sans titre'), true);
+verifier('… et son équivalent anglais',
+  modele.regles.en[0].includes('Untitled project'), true);
 verifier('les règles ne polluent pas les paramètres', modele.params['1'], undefined);
 
 console.log('\nSollicitation — qui est retenu, qui est écarté');
@@ -603,7 +698,7 @@ const appsCourriel = [
   { nom: 'Projet sans titre', familles: ['drive', 'script'], depuis: '2026-05-02' },
   { nom: 'Outil <script>alerte</script>', familles: ['gmail'], depuis: '2026-01-09' }
 ];
-const { html, texte } = corpsCourriel_('bob@exemple.fr', appsCourriel, modele);
+const { html, texte } = corpsCourriel_('bob@exemple.fr', appsCourriel, modele, 'fr');
 verifier('le nom de l\'application figure', html.includes('Projet sans titre'), true);
 verifier('le HTML injecté est neutralisé', html.includes('<script>alerte'), false);
 verifier('… et rendu en texte échappé', html.includes('&lt;script&gt;alerte'), true);
@@ -611,13 +706,29 @@ verifier('le lien de révocation est donné',
   html.includes('myaccount.google.com/permissions'), true);
 verifier('les sept règles sont dans le courriel',
   (html.match(/<li style="margin:6px 0">/g) || []).length, 7);
-verifier('le délai est repris', html.includes('<strong>15 jours</strong>'), true);
-verifier('la version texte existe aussi', texte.includes('Projet sans titre'), true);
-verifier('la version texte porte les règles', texte.includes('Règles de nommage'), true);
 verifier('les portées sont dites en clair, pas en jargon',
   html.includes('vos fichiers Drive et vos projets Apps Script'), true);
+verifier('le délai est repris', html.includes('<strong>15 jours</strong>'), true);
+verifier('la version texte existe aussi', texte.includes('Projet sans titre'), true);
+verifier('la version texte porte les règles',
+  texte.includes('règles de nommage à appliquer'), true);
 verifier('aucune famille technique ne subsiste dans le tableau',
   /<td[^>]*>drive<\/td>/.test(html), false);
+
+console.log('\nCourriel — le même, en anglais');
+const anglais = corpsCourriel_('bob@filiale.co.uk', appsCourriel, modele, 'en');
+verifier('l\'objet est traduit', anglais.objet.startsWith('Third-party apps'), true);
+verifier('le corps aussi', anglais.html.includes('Hello,'), true);
+verifier('les accès sont dits en anglais',
+  anglais.html.includes('your Drive files and your Apps Script projects'), true);
+verifier('les règles de nommage sont les anglaises',
+  anglais.html.includes('Untitled project'), true);
+verifier('… et plus les françaises',
+  anglais.html.includes('Jamais « Projet sans titre »'), false);
+verifier('les dates sont anglaises', anglais.html.includes('2 May 2026'), true);
+verifier('la version texte suit', anglais.texte.includes('Hello,'), true);
+verifier('aucun résidu de français dans le corps anglais',
+  /Merci de nous répondre|Bonjour,|Ce que nous vous demandons/.test(anglais.html), false);
 
 console.log('\nRévocation — le référentiel commande, pas un filtre');
 // On reconstitue un relevé de jetons et on éprouve ce qui entre dans le plan.
@@ -625,7 +736,7 @@ const releve2 = classeurActif.getSheetByName('_Jetons')
   || classeurActif.insertSheet('_Jetons');
 releve2.clear();
 releve2.getRange(1, 1, 3, COLONNES_JETONS_.length).setValues([
-  COLONNES_JETONS_,
+  entetesEn_(COLONNES_JETONS_, 'fr'),
   ['bob@exemple.fr', 'cid1', 'NotebookLM', `${J}drive.readonly`, '', '', '2026-09-06'],
   ['dora@exemple.fr', 'cidZ', 'Vieil outil', `${J}gmail.readonly`, '', '', '2026-09-06']
 ]);
@@ -633,7 +744,7 @@ agreger_(classeurActif, { jours: 180 });
 
 const dec2 = classeurActif.getSheetByName('Décisions');
 const enTetesDec = dec2.cells[0];
-const colDec = (nom) => enTetesDec.indexOf(nom) + 1;
+const colDec = (id) => colonne_(enTetesDec, id) + 1;
 const ligneDe = (cid) => dec2.cells.slice(1).findIndex((r) => r[0] === cid) + 2;
 
 // aucune décision : le plan doit rester vide
@@ -642,33 +753,67 @@ let plan = classeurActif.getSheetByName('Révocations');
 verifier('sans décision, aucune révocation', plan.getLastRow() - 1, 0);
 
 // une application approuvée n'est pas révocable non plus
-dec2.getRange(ligneDe('cid1'), colDec('Statut')).setValue('approuvée');
+dec2.getRange(ligneDe('cid1'), colDec('statut')).setValue('approuvée');
 preparerRevocations();
 verifier('une application approuvée non plus',
   classeurActif.getSheetByName('Révocations').getLastRow() - 1, 0);
 
 // seule « à bloquer », décision en vigueur, produit des lignes
-dec2.getRange(ligneDe('cidZ'), colDec('Statut')).setValue(STATUT_REVOCABLE_);
-dec2.getRange(ligneDe('cidZ'), colDec('Motif')).setValue('Éditeur inconnu');
-dec2.getRange(ligneDe('cidZ'), colDec('Décidé par')).setValue('RSSI');
+dec2.getRange(ligneDe('cidZ'), colDec('statut')).setValue(STATUT_REVOCABLE_);
+dec2.getRange(ligneDe('cidZ'), colDec('motif')).setValue('Éditeur inconnu');
+dec2.getRange(ligneDe('cidZ'), colDec('decidePar')).setValue('RSSI');
 preparerRevocations();
 plan = classeurActif.getSheetByName('Révocations');
 verifier('« à bloquer » produit une ligne', plan.getLastRow() - 1, 1);
-const iEtatPlan = COLONNES_REVOCATIONS_.indexOf('État');
+const iEtatPlan = COLONNES_REVOCATIONS_.indexOf('etat');
 verifier('à l\'état « à révoquer »', plan.cells[1][iEtatPlan], 'à révoquer');
 verifier('sur le bon compte', plan.cells[1][0], 'dora@exemple.fr');
 verifier('le motif de la décision suit',
-  plan.cells[1][COLONNES_REVOCATIONS_.indexOf('Motif de la décision')], 'Éditeur inconnu');
+  plan.cells[1][COLONNES_REVOCATIONS_.indexOf('motifDecision')], 'Éditeur inconnu');
 verifier('et son auteur aussi',
-  plan.cells[1][COLONNES_REVOCATIONS_.indexOf('Décidé par')], 'RSSI');
+  plan.cells[1][COLONNES_REVOCATIONS_.indexOf('decidePar')], 'RSSI');
 
 // une décision périmée ne commande plus rien
-dec2.getRange(ligneDe('cidZ'), colDec('Revoir avant')).setValue('2020-01-01');
+dec2.getRange(ligneDe('cidZ'), colDec('revoirAvant')).setValue('2020-01-01');
 preparerRevocations();
 verifier('une décision périmée ne commande plus rien',
   classeurActif.getSheetByName('Révocations').getLastRow() - 1, 0);
-dec2.getRange(ligneDe('cidZ'), colDec('Revoir avant')).setValue('');
-dec2.getRange(ligneDe('cid1'), colDec('Statut')).setValue('');
+dec2.getRange(ligneDe('cidZ'), colDec('revoirAvant')).setValue('');
+dec2.getRange(ligneDe('cid1'), colDec('statut')).setValue('');
+
+console.log('\nMenu — il répond lui-même à « et maintenant ? »');
+const etape = (o) => prochaineEtape_({
+  journal: false, profils: false, jetons: false, aInstruire: false,
+  nonClassees: 0, envoisEnAttente: 0, revocationsEnAttente: 0, ...o
+}).libelle;
+verifier('classeur vide', etape({}), 'Commencer : moissonner le journal d\'audit');
+verifier('journal seul', etape({ journal: true }), 'Relever les profils des comptes');
+verifier('journal et profils', etape({ journal: true, profils: true }),
+  'Relever les jetons actifs (c\'est long)');
+verifier('tout collecté, rien classé',
+  etape({ journal: true, profils: true, jetons: true, nonClassees: 12 }),
+  'Classer : 12 application(s) sans décision');
+verifier('tout classé',
+  etape({ journal: true, profils: true, jetons: true }),
+  'Tout est classé — relancer une collecte');
+
+// On finit ce qu'on a commencé : un plan en attente passe devant tout le reste,
+// parce que rien d'autre ne le rappellera.
+verifier('un envoi préparé passe devant une collecte manquante',
+  etape({ journal: true, envoisEnAttente: 7 }), 'Terminer : 7 courriel(s) à envoyer');
+verifier('une révocation préparée passe même devant l\'envoi',
+  etape({ journal: true, envoisEnAttente: 7, revocationsEnAttente: 3 }),
+  'Terminer : 3 révocation(s) préparée(s)');
+verifier('chaque étape dit pourquoi',
+  prochaineEtape_({ journal: false }).pourquoi.length > 40, true);
+
+console.log('\nMenu — le diagnostic lit le classeur réel');
+const travail = etatDuTravail_(classeurActif);
+verifier('il voit le journal moissonné', travail.journal, true);
+verifier('il voit les profils relevés', travail.profils, true);
+verifier('il compte les applications non classées', travail.nonClassees >= 1, true);
+verifier('un classeur vide ne le fait pas échouer',
+  etatDuTravail_(new FauxClasseur([])).journal, false);
 
 console.log('\nGuide — l\'outil s\'explique là où on l\'utilise');
 const sujets = GUIDE_.map(([titre]) => titre);
@@ -711,6 +856,19 @@ verifier('les guillemets doubles et simples sont échappés',
   pris('echapper_')('test "double" et \'simple\''),
   'test &quot;double&quot; et &#39;simple&#39;');
 
+console.log('\nDates — stockées pour trier, affichées pour être lues');
+verifier('une date simple', dateLisible_('2026-09-06'), '6 septembre 2026');
+verifier('le premier du mois prend son rang', dateLisible_('2026-05-01'), '1er mai 2026');
+verifier('avec l\'heure', dateLisible_('2026-09-06 09:31'), '6 septembre 2026 à 09 h 31');
+verifier('un mois accentué', dateLisible_('2026-02-14'), '14 février 2026');
+verifier('ce qui n\'est pas une date ne bouge pas', dateLisible_('7 Mo'), '7 Mo');
+verifier('ni un nombre', dateLisible_(52), '52');
+verifier('une période entière est convertie',
+  datesLisibles_('2026-05-29 → 2026-09-05'), '29 mai 2026 → 5 septembre 2026');
+verifier('même noyée dans une phrase',
+  datesLisibles_('Vue du 2026-08-01 au 2026-08-20 inclus'),
+  'Vue du 1er août 2026 au 20 août 2026 inclus');
+
 console.log('\nVue de consultation — ce qui sort, et surtout ce qui ne sort pas');
 const accueil = pageAccueil_(classeurActif).html;
 verifier('la synthèse est publiée', accueil.includes('Où en est le parc'), true);
@@ -719,6 +877,10 @@ verifier('la priorité est expliquée sur la page',
   accueil.includes('somme de points, non une'), true);
 verifier('la date de production est rappelée',
   accueil.includes('Données produites le'), true);
+verifier('et elle est écrite en français',
+  accueil.includes('6 septembre 2026'), true);
+verifier('aucune date ISO ne subsiste sur la page',
+  /\d{4}-\d{2}-\d{2}/.test(accueil), false);
 verifier('le lecteur sait qu\'il est identifié',
   accueil.includes('rssi@exemple.fr'), true);
 
@@ -733,6 +895,12 @@ verifier('et elle dit pourquoi',
   ficheWeb.includes('ne sont pas publiés sur cette page'), true);
 verifier('pas de bouton d\'impression hors du classeur',
   ficheWeb.includes('window.print()'), false);
+verifier('la fiche publiée date en français',
+  /\d{4}-\d{2}-\d{2}/.test(ficheWeb), false);
+
+// Le classeur, lui, garde l'ISO : c'est le seul format qui se trie en texte.
+verifier('le classeur conserve les dates triables',
+  /^\d{4}-\d{2}-\d{2}$/.test(String(onglet('Applications').cells[1][22])), true);
 
 // dans le classeur, à l'inverse, l'administrateur voit tout
 const ficheClasseur = ficheHtml_(dossier_(classeurActif, 'cid1'));

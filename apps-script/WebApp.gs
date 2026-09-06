@@ -1,5 +1,5 @@
 /**
- * Vue de consultation — v1.2.
+ * Vue de consultation — introduite en v1.2.
  *
  * Une page web en **lecture seule**, pour les destinataires que le classeur ne
  * sert pas : le RSSI, le comité sécurité, la direction — des gens qui doivent
@@ -73,8 +73,8 @@ const classeurPublie_ = () => {
 
 // ------------------------------------------------------------------- lecture
 
-const tableau_ = (classeur, nom) => {
-  const f = classeur.getSheetByName(nom);
+const tableau_ = (classeur, id) => {
+  const f = chercherOnglet_(classeur, id);
   if (!f || f.getLastRow() < 2) return { entetes: [], lignes: [] };
   const v = f.getDataRange().getValues();
   return { entetes: v[0], lignes: v.slice(1) };
@@ -82,7 +82,7 @@ const tableau_ = (classeur, nom) => {
 
 /** La Synthèse est un tableau clé/valeur : on la relit telle quelle. */
 const syntheseLue_ = (classeur) => {
-  const { lignes } = tableau_(classeur, 'Synthèse');
+  const { lignes } = tableau_(classeur, 'synthese');
   return lignes.map(([cle, valeur]) => ({
     cle: String(cle || ''),
     valeur: valeur === '' || valeur === undefined ? '' : String(valeur),
@@ -115,23 +115,23 @@ const STYLE_ = `
            padding-top:12px }
 `;
 
-const enveloppe_ = (titre, corps, classeur) => {
+const enveloppe_ = (titre, corps, classeur, lg) => {
   const synthese = syntheseLue_(classeur);
-  const genere = (synthese.find((l) => l.cle === 'Généré le') || {}).valeur || 'inconnue';
+  const genere = (synthese.find((l) => l.cle === 'Généré le') || {}).valeur || '—';
   const lecteur = Session.getActiveUser().getEmail();
   return HtmlService.createHtmlOutput(`
 <style>${STYLE_}</style>
 <main>
-  <h1>Applications tierces connectées au domaine</h1>
-  <div class="note">Vue de consultation, en lecture seule.</div>
+  <h1>${t_('vue.titre', lg)}</h1>
+  <div class="note">${t_('vue.sousTitre', lg)}</div>
   ${corps}
   <footer>
-    Données produites le <strong>${echapper_(genere)}</strong> — cette page ne
-    rafraîchit rien, elle relit le dernier rapport. Un chiffre lu ici n'est pas
-    l'état du tenant à l'instant présent, mais celui de la dernière collecte.<br>
-    ${lecteur ? `Vous consultez en tant que ${echapper_(lecteur)}.<br>` : ''}
-    Pour agir — collecter, solliciter, révoquer — il faut le classeur et des
-    droits d'administrateur.
+    ${t_('vue.produitesLe', lg)}
+    <strong>${echapper_(datesLisiblesLangue_(genere, lg))}</strong>
+    ${t_('vue.neRafraichitRien', lg)}<br>
+    ${lecteur ? `${t_('vue.vousConsultez', lg)} ${echapper_(lecteur)}.<br>` : ''}
+    ${t_('vue.pourAgir', lg)}<br>
+    ${t_('vue.outilVersion', lg)} ${echapper_(VERSION_)}.
   </footer>
 </main>`)
     .setTitle(titre)
@@ -143,14 +143,16 @@ const enveloppe_ = (titre, corps, classeur) => {
 };
 
 const pageAccueil_ = (classeur) => {
+  const lg = reglages_(classeur).interface;
   const synthese = syntheseLue_(classeur);
   const lignesSynthese = synthese
     .filter((l) => l.cle || l.valeur)
     .map((l) => `<tr><td class="${l.section ? 'sect' : ''}">${echapper_(l.cle)}</td>
-      <td class="${l.section ? 'sect' : ''}">${echapper_(l.valeur)}</td></tr>`)
+      <td class="${l.section ? 'sect' : ''}">${
+        echapper_(datesLisiblesLangue_(l.valeur, lg))}</td></tr>`)
     .join('');
 
-  const { entetes, lignes } = tableau_(classeur, 'À instruire');
+  const { entetes, lignes } = tableau_(classeur, 'aInstruire');
   const i = (nom) => entetes.indexOf(nom);
   const file = lignes.slice(0, LIGNES_PUBLIEES_).map((l) => {
     const niveau = String(l[i('Niveau max')] || '');
@@ -159,44 +161,47 @@ const pageAccueil_ = (classeur) => {
     return `<tr>
       <td class="prio">${echapper_(l[i('Priorité')])}</td>
       <td><a href="?app=${cid}">${echapper_(l[i('Application')])}</a></td>
-      <td class="${classe}">${echapper_(niveau)}</td>
+      <td class="${classe}">${echapper_(
+        TEXTES_[`niveau.${niveau}`] ? t_(`niveau.${niveau}`, lg) : niveau)}</td>
       <td>${echapper_(l[i('Autorisants')])}</td>
       <td class="note">${echapper_(l[i('Motifs')])}</td>
     </tr>`;
   }).join('');
 
-  return enveloppe_('Applications tierces', `
-    <h2>Où en est le parc</h2>
+  return enveloppe_(t_('vue.titre', lg), `
+    <h2>${t_('vue.parc', lg)}</h2>
     <div class="carte"><table>${lignesSynthese}</table></div>
 
-    <h2>À instruire — ce qui appelle un examen</h2>
+    <h2>${t_('vue.aInstruire', lg)}</h2>
     <div class="carte">
       ${file ? `<table>
-        <tr><th>Priorité</th><th>Application</th><th>Gravité</th><th>Autorisants</th>
-        <th>Pourquoi</th></tr>${file}</table>
+        <tr><th>${t_('vue.colonne.priorite', lg)}</th>
+        <th>${t_('vue.colonne.application', lg)}</th>
+        <th>${t_('vue.colonne.gravite', lg)}</th>
+        <th>${t_('vue.colonne.autorisants', lg)}</th>
+        <th>${t_('vue.colonne.pourquoi', lg)}</th></tr>${file}</table>
         ${lignes.length > LIGNES_PUBLIEES_
-          ? `<div class="note" style="margin-top:10px">Les ${LIGNES_PUBLIEES_} premières
-             sur ${lignes.length}. La liste complète est dans le classeur.</div>` : ''}`
-        : '<div class="note">Rien à instruire : soit tout est classé, soit aucune '
-          + 'collecte n\'a encore eu lieu.</div>'}
+          ? `<div class="note" style="margin-top:10px">${t_('vue.premieres', lg,
+            { n: LIGNES_PUBLIEES_, total: lignes.length })}</div>` : ''}`
+        : `<div class="note">${t_('vue.rienAInstruire', lg)}</div>`}
     </div>
 
     <div class="avert">
-      <strong>Comment lire la priorité.</strong> C'est une somme de points, non une
-      note sur 100 : chaque motif pèse un poids choisi à la main, et la colonne
-      « Pourquoi » en donne le détail. Elle sert à ordonner le travail, pas à
-      trancher à la place de qui décide.
-    </div>`, classeur);
+      <strong>${t_('vue.avertPriorite.titre', lg)}</strong>
+      ${t_('vue.avertPriorite.corps', lg)}
+    </div>`, classeur, lg);
 };
 
 const pageFiche_ = (classeur, cid) => {
+  const lg = reglages_(classeur).interface;
   const d = dossier_(classeur, cid);
   // Sans la liste des comptes : un comité statue sur une application, pas sur
   // des personnes nommées.
-  return enveloppe_(`Fiche — ${d.nom}`, `
-    <h2><a href="?">← Retour</a></h2>
-    <div class="carte">${ficheHtml_(d, { avecComptes: false, avecImpression: false })}</div>`,
-  classeur);
+  return enveloppe_(`${d.nom}`, `
+    <h2><a href="?">${t_('vue.retour', lg)}</a></h2>
+    <div class="carte">${ficheHtml_(d,
+      { avecComptes: false, avecImpression: false, langue: lg })}</div>`,
+  classeur, lg);
 };
 
 /**
