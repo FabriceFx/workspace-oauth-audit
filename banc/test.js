@@ -94,9 +94,17 @@ const sandbox = {
       setTitle() { return this; },
       setWidth() { return this; },
       setHeight() { return this; },
-      setXFrameOptionsMode() { return this; }
+      setXFrameOptionsMode(mode) {
+        // Le vrai service refuse un mode nul : le faux doit refuser aussi,
+        // sans quoi il valide du code qui échouera chez Google.
+        if (mode === undefined || mode === null) {
+          throw new Error('L\'argument mode ne doit pas être null.');
+        }
+        return this;
+      }
     }),
-    XFrameOptionsMode: { DENY: 'DENY' }
+    // L'énumération réelle ne comporte que ces deux valeurs.
+    XFrameOptionsMode: { ALLOWALL: 'ALLOWALL', DEFAULT: 'DEFAULT' }
   },
   encodeURIComponent,
   Utilities: {

@@ -135,7 +135,11 @@ const enveloppe_ = (titre, corps, classeur) => {
   </footer>
 </main>`)
     .setTitle(titre)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DENY);
+    // L'énumération ne comporte que ALLOWALL et DEFAULT — il n'existe pas de
+    // DENY, et `HtmlService.XFrameOptionsMode.DENY` valait donc `undefined`.
+    // DEFAULT est déjà la valeur protectrice : elle pose l'en-tête
+    // X-Frame-Options normal. C'est ALLOWALL qu'il faut se garder d'écrire.
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 };
 
 const pageAccueil_ = (classeur) => {

@@ -7,6 +7,15 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.2.1] - 2026-09-06
+
+### Corrigé
+- **`HtmlService.XFrameOptionsMode.DENY` n'existe pas.** L'énumération ne comporte que `ALLOWALL` et `DEFAULT` ; `DENY` valait donc `undefined`, et le vrai service refusait un mode nul — la page ne s'affichait pas du tout. `DEFAULT` est déjà la valeur protectrice, qui pose l'en-tête `X-Frame-Options` normal : c'est `ALLOWALL` qu'il faut se garder d'écrire. Vérifié sur la documentation plutôt que corrigé de mémoire.
+- **Le banc d'essai validait ce code faux**, parce que son faux `HtmlService` acceptait n'importe quoi. Il refuse désormais un mode nul, avec le message exact de Google, et son énumération ne porte que les deux valeurs réelles. Réintroduire le défaut dans une copie du projet fait bien échouer le banc : la vérification a été faite.
+- **`Portees.gs` déclarait `const A`** pour préfixer les URL de portées. Ce n'était pas un défaut actif, mais un piège : une redéclaration dans un autre fichier aurait fait échouer le chargement du projet entier, et **toutes** les fonctions seraient devenues « introuvables » d'un coup. Renommée `AUTH_`.
+
+---
+
 ## [1.2.0] - 2026-09-06
 
 > **L'angle croyance limitante :** *Partager le classeur en lecture seule à la direction ou au RSSI suffit pour communiquer sur la sécurité.*
