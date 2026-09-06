@@ -1,0 +1,5 @@
+# Clasp & configuration locale
+.clasp.json
+.clasprc.json
+
+.DS_Store
