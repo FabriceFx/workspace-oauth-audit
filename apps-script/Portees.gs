@@ -40,7 +40,7 @@ const NIVEAUX_ = ['restreinte', 'sensible', 'basique'];
 /** Niveau appliqué à une portée que le catalogue ne connaît pas. */
 const NIVEAU_INCONNU_ = 'sensible';
 
-const A = 'https://www.googleapis.com/auth/';
+const AUTH_ = 'https://www.googleapis.com/auth/';
 
 /**
  * Jeu de départ. Les portées restreintes reprennent la liste publiée par Google
@@ -51,47 +51,47 @@ const CATALOGUE_DEFAUT_ = [
   COLONNES_CATALOGUE_,
 
   ['https://mail.google.com/', 'restreinte', '', 'Messagerie, accès complet'],
-  [`${A}gmail.`, 'restreinte', '', 'Toute la famille Gmail'],
-  [`${A}drive`, 'restreinte', '', 'Drive, accès complet'],
-  [`${A}drive.readonly`, 'restreinte', '', 'Drive, lecture de tout'],
-  [`${A}drive.metadata`, 'restreinte', '', 'Métadonnées de tout Drive'],
-  [`${A}drive.metadata.readonly`, 'restreinte', '', 'Métadonnées, lecture'],
-  [`${A}drive.activity`, 'restreinte', '', 'Activité Drive'],
-  [`${A}drive.activity.readonly`, 'restreinte', '', 'Activité Drive, lecture'],
-  [`${A}drive.scripts`, 'restreinte', '', 'Scripts liés aux fichiers Drive'],
+  [`${AUTH_}gmail.`, 'restreinte', '', 'Toute la famille Gmail'],
+  [`${AUTH_}drive`, 'restreinte', '', 'Drive, accès complet'],
+  [`${AUTH_}drive.readonly`, 'restreinte', '', 'Drive, lecture de tout'],
+  [`${AUTH_}drive.metadata`, 'restreinte', '', 'Métadonnées de tout Drive'],
+  [`${AUTH_}drive.metadata.readonly`, 'restreinte', '', 'Métadonnées, lecture'],
+  [`${AUTH_}drive.activity`, 'restreinte', '', 'Activité Drive'],
+  [`${AUTH_}drive.activity.readonly`, 'restreinte', '', 'Activité Drive, lecture'],
+  [`${AUTH_}drive.scripts`, 'restreinte', '', 'Scripts liés aux fichiers Drive'],
 
-  [`${A}admin.`, 'sensible', 'oui', 'Administration du domaine'],
-  [`${A}cloud-identity.`, 'sensible', 'oui', 'Annuaire et groupes'],
-  [`${A}apps.licensing`, 'sensible', 'oui', 'Licences Workspace'],
-  [`${A}apps.groups.`, 'sensible', 'oui', 'Paramètres des groupes'],
-  [`${A}apps.order`, 'sensible', 'oui', 'Commandes revendeur'],
+  [`${AUTH_}admin.`, 'sensible', 'oui', 'Administration du domaine'],
+  [`${AUTH_}cloud-identity.`, 'sensible', 'oui', 'Annuaire et groupes'],
+  [`${AUTH_}apps.licensing`, 'sensible', 'oui', 'Licences Workspace'],
+  [`${AUTH_}apps.groups.`, 'sensible', 'oui', 'Paramètres des groupes'],
+  [`${AUTH_}apps.order`, 'sensible', 'oui', 'Commandes revendeur'],
 
-  [`${A}calendar`, 'sensible', '', 'Agenda, accès complet'],
-  [`${A}calendar.`, 'sensible', '', 'Famille Agenda'],
-  [`${A}contacts`, 'sensible', '', 'Contacts'],
-  [`${A}contacts.`, 'sensible', '', 'Famille Contacts'],
-  [`${A}documents`, 'sensible', '', 'Docs'],
-  [`${A}documents.`, 'sensible', '', 'Famille Docs'],
-  [`${A}spreadsheets`, 'sensible', '', 'Sheets'],
-  [`${A}spreadsheets.`, 'sensible', '', 'Famille Sheets'],
-  [`${A}presentations`, 'sensible', '', 'Slides'],
-  [`${A}presentations.`, 'sensible', '', 'Famille Slides'],
-  [`${A}forms`, 'sensible', '', 'Forms'],
-  [`${A}forms.`, 'sensible', '', 'Famille Forms'],
-  [`${A}tasks`, 'sensible', '', 'Tasks'],
-  [`${A}tasks.`, 'sensible', '', 'Famille Tasks'],
-  [`${A}script.`, 'sensible', '', 'Projets Apps Script'],
-  [`${A}apps_genai.`, 'sensible', '', 'Fonctions d\'intelligence artificielle'],
-  [`${A}chat.`, 'sensible', '', 'Chat'],
-  [`${A}devstorage.`, 'sensible', '', 'Cloud Storage'],
+  [`${AUTH_}calendar`, 'sensible', '', 'Agenda, accès complet'],
+  [`${AUTH_}calendar.`, 'sensible', '', 'Famille Agenda'],
+  [`${AUTH_}contacts`, 'sensible', '', 'Contacts'],
+  [`${AUTH_}contacts.`, 'sensible', '', 'Famille Contacts'],
+  [`${AUTH_}documents`, 'sensible', '', 'Docs'],
+  [`${AUTH_}documents.`, 'sensible', '', 'Famille Docs'],
+  [`${AUTH_}spreadsheets`, 'sensible', '', 'Sheets'],
+  [`${AUTH_}spreadsheets.`, 'sensible', '', 'Famille Sheets'],
+  [`${AUTH_}presentations`, 'sensible', '', 'Slides'],
+  [`${AUTH_}presentations.`, 'sensible', '', 'Famille Slides'],
+  [`${AUTH_}forms`, 'sensible', '', 'Forms'],
+  [`${AUTH_}forms.`, 'sensible', '', 'Famille Forms'],
+  [`${AUTH_}tasks`, 'sensible', '', 'Tasks'],
+  [`${AUTH_}tasks.`, 'sensible', '', 'Famille Tasks'],
+  [`${AUTH_}script.`, 'sensible', '', 'Projets Apps Script'],
+  [`${AUTH_}apps_genai.`, 'sensible', '', 'Fonctions d\'intelligence artificielle'],
+  [`${AUTH_}chat.`, 'sensible', '', 'Chat'],
+  [`${AUTH_}devstorage.`, 'sensible', '', 'Cloud Storage'],
 
-  [`${A}drive.file`, 'basique', '', 'Seulement les fichiers créés par l\'application'],
-  [`${A}drive.appdata`, 'basique', '', 'Dossier de configuration de l\'application'],
-  [`${A}drive.install`, 'basique', '', 'Association d\'ouverture'],
-  [`${A}userinfo.email`, 'basique', '', 'Adresse de courriel'],
-  [`${A}userinfo.profile`, 'basique', '', 'Nom et photo'],
+  [`${AUTH_}drive.file`, 'basique', '', 'Seulement les fichiers créés par l\'application'],
+  [`${AUTH_}drive.appdata`, 'basique', '', 'Dossier de configuration de l\'application'],
+  [`${AUTH_}drive.install`, 'basique', '', 'Association d\'ouverture'],
+  [`${AUTH_}userinfo.email`, 'basique', '', 'Adresse de courriel'],
+  [`${AUTH_}userinfo.profile`, 'basique', '', 'Nom et photo'],
   ['openid', 'basique', '', 'Identifiant de connexion'],
-  [`${A}script.container.ui`, 'basique', '', 'Interface d\'un document']
+  [`${AUTH_}script.container.ui`, 'basique', '', 'Interface d\'un document']
 ];
 
 const chargerCatalogue_ = (classeur) => {

@@ -188,6 +188,13 @@ que : moi* et *Accès : votre domaine*.
 
 Puis **Menu > Vue de consultation — obtenir le lien**.
 
+> **« Fonction de script introuvable : doGet »** — le déploiement sert une
+> *version figée* du code, pas le code courant. Si la vue a été déployée avant
+> l'ajout du fichier `WebApp.gs`, elle ne le verra jamais, quel que soit le
+> nombre de `clasp push`. Allez dans *Déployer > Gérer les déploiements*,
+> modifiez le déploiement (crayon), choisissez **Version : nouvelle version**,
+> puis *Déployer*.
+
 Cette page ne publie que la synthèse, la file de travail et les fiches — **sans
 les comptes autorisants**. Elle n'agit sur rien : ni collecte, ni courriel, ni
 révocation. C'est précisément ce qui rend acceptable son exécution sous votre
