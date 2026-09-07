@@ -292,6 +292,7 @@ Modules pressentis, sur le découpage de la passerelle : `Journal` (Reports),
 | ✅ **1.4** | bilinguisme de ce qui sort du classeur — courriel, vue, fiche | on peut écrire à qui ne lit pas le français |
 | ✅ **1.5** | assistant en panneau latéral ; bilinguisme du classeur — menu, dialogues, onglets, colonnes, statuts | l'outil se lit en anglais, et dit en permanence où l'on en est |
 | ✅ **1.6** | robustesse à l'échelle : garde-fou de reprise, comptes non mesurés nommés, resserrage du brut | ce qui ne se voit que sur un grand parc |
+| ✅ **1.7** | fenêtre d'essai à 7 jours, et fenêtre courte annoncée à sa valeur réelle | on aborde un parc inconnu sans rien engager |
 | **2.0** | historisation au-delà des 6 mois, détection de dérive, nouvelle application signalée | la surveillance continue |
 
 La v0.1 est un script de quelques dizaines de lignes. Elle est là pour tuer le
@@ -780,11 +781,31 @@ chacun.
 **Six minutes par exécution, six heures par jour** sur déclencheurs en Workspace.
 Le chiffre de 30 minutes par exécution qui circule encore a été retiré.
 
-Avant un premier moissonnage sur un grand parc : lancer `sonde(30)`, lire
-« N événements lus en X s », multiplier par six pour l'ordre de grandeur à
-180 jours. C'est ce chiffre qui décide de la fenêtre, et il dépend entièrement de
-la journalisation des événements `activity` du tenant — un facteur cent entre
-deux tenants.
+### Dimensionner avant de lancer
+
+Sur un parc dont on ne connaît pas le volume, l'ordre est : `sonde(30)`, puis un
+moissonnage de **7 jours**, puis la fenêtre qu'on visait.
+
+La sonde ne fait que compter ; les 7 jours produisent un **rapport complet, en
+petit**, dont on peut juger la forme avant d'engager le volume. La fenêtre courte
+de la volumétrie est alors ramenée à 7 jours, et la synthèse le dit — deux
+volumes ne se comparent qu'à fenêtre égale.
+
+Deux lignes à lire dans la sonde :
+
+1. **« Lecture arrêtée sur le budget de temps ».** Si elle apparaît sur 30 jours,
+   la réponse est déjà là : 180 jours est hors d'atteinte.
+2. **Le nombre d'événements, N.** Une ligne de brut par événement, 14 colonnes.
+
+| 6 × N (estimation à 180 jours) | décision |
+|---|---|
+| < 300 000 | `moissonner(180)` sans réserve |
+| 300 000 – 500 000 | ça devrait passer ; garder `resserrerBrut(30)` en tête |
+| > 500 000 | rester à 30 jours — le classeur sature avant l'agrégation |
+
+Ce chiffre dépend entièrement de la journalisation des événements `activity` du
+tenant, et des refus `SCOPE_BLOCK` que produisent les contrôles d'API : un
+facteur cent entre deux tenants.
 
 ## Ce que le journal permet de dire, et ce qu'il ne permet pas
 

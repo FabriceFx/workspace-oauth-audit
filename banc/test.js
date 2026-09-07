@@ -161,7 +161,8 @@ const {
   estStatut_, nomStatut_, statutsEn_, ACTIONS_, STATUTS_LANGUE_,
   moissonner, entetesBrut_, resserrerBrut, inventorierJetons,
   comptesNonMesures_, COLONNES_ECHECS_, ilYaJours_,
-  REPRISES_SANS_PROGRES_MAX_
+  REPRISES_SANS_PROGRES_MAX_, fenetreRecenteEffective_, FENETRE_RECENTE_JOURS_,
+  moissonnerDepuisMenu_
 } = Object.fromEntries([
   'famille_', 'domaine_', 'portees_', 'octets_', 'classer_', 'lignesDe_',
   'agreger_', 'brutCourant_', 'etatPresume_', 'COLONNES_BRUT_',
@@ -179,7 +180,8 @@ const {
   'estStatut_', 'nomStatut_', 'statutsEn_', 'ACTIONS_', 'STATUTS_LANGUE_',
   'moissonner', 'entetesBrut_', 'resserrerBrut', 'inventorierJetons',
   'comptesNonMesures_', 'COLONNES_ECHECS_', 'ilYaJours_',
-  'REPRISES_SANS_PROGRES_MAX_'
+  'REPRISES_SANS_PROGRES_MAX_', 'fenetreRecenteEffective_', 'FENETRE_RECENTE_JOURS_',
+  'moissonnerDepuisMenu_'
 ].map((n) => [n, pris(n)]));
 
 let echecs = 0;
@@ -1211,6 +1213,35 @@ verifier('l\'onglet de travail a disparu',
 verifier('et l\'état ne traîne pas', proprietes.has('resserrage'), false);
 verifier('le menu sait le lancer', Boolean(ACTIONS_.menuResserrerBrut30), true);
 classeurActif = memoireClasseur;
+
+
+console.log('\nFenêtre courte — on annonce ce que le journal couvre, pas ce qu\'on visait');
+// Le piège d'une fenêtre de 7 jours : titrer « volume sur 30 jours » un chiffre
+// calculé sur 7. Le nombre serait juste, l'étiquette fausse, et le lecteur en
+// conclurait que l'application consomme peu.
+const ilYa = (j) => jour_(new Date(Date.now() - j * 86400000));
+verifier('un journal de 180 jours garde la fenêtre pleine',
+  fenetreRecenteEffective_(ilYa(180)), FENETRE_RECENTE_JOURS_);
+verifier('un journal de 30 jours aussi',
+  fenetreRecenteEffective_(ilYa(30)), FENETRE_RECENTE_JOURS_);
+verifier('un journal de 7 jours la ramène à 7',
+  fenetreRecenteEffective_(ilYa(7)), 7);
+verifier('un journal d\'un jour ne descend pas à zéro',
+  fenetreRecenteEffective_(ilYa(0)), 1);
+verifier('sans donnée, on reste sur la fenêtre nominale',
+  fenetreRecenteEffective_(''), FENETRE_RECENTE_JOURS_);
+verifier('une valeur illisible ne fait pas échouer le rapport',
+  fenetreRecenteEffective_('pas une date'), FENETRE_RECENTE_JOURS_);
+// Et le motif de priorité doit citer la fenêtre réelle.
+verifier('le motif de volume cite la fenêtre effective',
+  evaluer_(appFictive({ octets30: SEUIL_VOLUME_30J_ + 1 }), 7).motifs.includes('sur 7 jours'),
+  true);
+
+console.log('\nMoissonnage — chaque fenêtre du menu a son action');
+// Le ternaire à deux branches devenait faux dès la troisième fenêtre : le nom
+// se construit désormais, et la table doit le connaître.
+verifier('les trois fenêtres sont servies',
+  [7, 30, 180].filter((j) => !ACTIONS_[`menuMoissonner${j}`]), []);
 
 console.log(`\n${echecs ? `${echecs} échec(s)` : 'tout passe'}`);
 process.exit(echecs ? 1 : 0);

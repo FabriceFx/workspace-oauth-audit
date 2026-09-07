@@ -244,7 +244,9 @@ const agreger_ = (classeur, etat) => {
     }
   }
 
-  for (const a of apps.values()) a.evaluation = evaluer_(a);
+  // La fenêtre courte annoncée est celle que le journal couvre vraiment.
+  contexte.fenetreRecente = fenetreRecenteEffective_(horoMin);
+  for (const a of apps.values()) a.evaluation = evaluer_(a, contexte.fenetreRecente);
 
   const ajouts = synchroniserDecisions_(classeur, apps, lg);
   const decisions = lireDecisions_(classeur);
@@ -497,15 +499,22 @@ const ecrireSynthese_ = (classeur, apps, couples, portees, ctx, lg) => {
 
   l.push(['', '']);
   l.push(['Volumétrie', '']);
+  if (ctx.fenetreRecente < FENETRE_RECENTE_JOURS_) {
+    // Le lecteur doit savoir que « récent » ne veut pas dire ici ce qu'il veut
+    // dire ailleurs : sans cette ligne, il comparerait deux chiffres de portées
+    // différentes sans s'en apercevoir.
+    l.push(['   Fenêtre courte ramenée à',
+      `${ctx.fenetreRecente} j — le journal ne remonte pas au-delà`]);
+  }
   l.push(['   Événements portant un volume', ctx.evenementsAvecOctets]);
   l.push(['   Volume cumulé', ctx.evenementsAvecOctets
     ? octets_(ctx.octetsTotal) : 'non journalisé sur cette période']);
   if (ctx.evenementsAvecOctets) {
-    l.push([`   Volume sur ${FENETRE_RECENTE_JOURS_} jours`, octets_(ctx.octets30)]);
+    l.push([`   Volume sur ${ctx.fenetreRecente} jours`, octets_(ctx.octets30)]);
     l.push(['   Couples application/service', ctx.services]);
     if (ctx.palmares && ctx.palmares.length) {
       l.push(['', '']);
-      l.push([`Plus consommatrices sur ${FENETRE_RECENTE_JOURS_} jours`, '']);
+      l.push([`Plus consommatrices sur ${ctx.fenetreRecente} jours`, '']);
       for (const a of ctx.palmares) l.push([`   ${a.nom}`, octets_(a.octets30)]);
     }
   }

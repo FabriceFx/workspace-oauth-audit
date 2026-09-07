@@ -48,6 +48,7 @@ function onOpen() {
   menu.addSeparator();
 
   menu.addSubMenu(ui.createMenu(T('menu.collecter'))
+    .addItem(T('menu.moissonner7'), 'menuMoissonner7')
     .addItem(T('menu.moissonner180'), 'menuMoissonner180')
     .addItem(T('menu.moissonner30'), 'menuMoissonner30')
     .addItem(T('menu.profils'), 'menuRafraichirComptes')
@@ -324,6 +325,7 @@ const depuisMenu_ = (titre, action) => {
   }
 };
 
+function menuMoissonner7() { moissonnerDepuisMenu_(7); }
 function menuMoissonner180() { moissonnerDepuisMenu_(180); }
 function menuMoissonner30() { moissonnerDepuisMenu_(30); }
 
@@ -345,8 +347,9 @@ const moissonnerDepuisMenu_ = (jours) => {
   const remplacement = brut && brut.getLastRow() > 1;
   const question = t_(remplacement ? 'confirm.moisson.remplace' : 'confirm.moisson.neuf',
     lg, { n: jours });
-  confirmer_(t_('confirm.moisson.titre', lg), question,
-    jours === 180 ? 'menuMoissonner180' : 'menuMoissonner30');
+  // Le nom se construit, il ne se choisit pas : ajouter une fenêtre ne doit pas
+  // obliger à retoucher un ternaire. confirmer_ refuse un nom absent de la table.
+  confirmer_(t_('confirm.moisson.titre', lg), question, `menuMoissonner${jours}`);
 };
 
 function menuInventorier() { inventorierDepuisMenu_(); }

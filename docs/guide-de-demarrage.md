@@ -100,6 +100,16 @@ qui s'enchaînent toutes seules — *Où en sont les collectes ?* vous le dira.
 À la fin, l'agrégation s'exécute d'elle-même et vous avez déjà un rapport
 complet.
 
+
+> **Sur un parc dont vous ne connaissez pas le volume, commencez par 7 jours.**
+> La fenêtre d'essai tient à coup sûr en une exécution et produit un rapport
+> complet, en petit : vous voyez le résultat avant d'engager 180 jours. La
+> synthèse signale alors que la fenêtre courte a été ramenée à 7 jours — les
+> volumes ne se comparent qu'à fenêtre égale.
+>
+> Relancer sur une fenêtre plus large **remplace** le contenu de l'onglet brut :
+> deux fenêtres empilées produiraient un rapport faux sans le dire.
+
 ### 2. Relever les profils des comptes
 
 **Menu > Collecter les données > Relever les profils des comptes.**

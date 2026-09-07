@@ -7,6 +7,20 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.0] - 2026-09-07
+
+> **Le constat qui dérange :** *Un chiffre juste sous une étiquette fausse est un chiffre faux.*
+> La fenêtre d'essai à 7 jours, réclamée pour aborder un grand parc sans rien engager, a mis au jour un défaut qui la précédait : la volumétrie annonçait « sur 30 jours » quoi qu'on ait collecté.
+
+### Ajouté
+- **Fenêtre de moissonnage à 7 jours**, à côté de 30 et 180. C'est l'essai qu'on veut faire en premier sur un parc dont on ne connaît pas le volume : assez court pour tenir à coup sûr en une exécution, mais assez complet pour produire un **vrai rapport** — ce que la sonde, qui ne fait que compter, ne donne pas. L'ordre recommandé devient : `sonde(30)`, puis 7 jours, puis la fenêtre visée.
+
+### Corrigé
+- **La fenêtre courte annoncée ne dépasse plus ce que le journal couvre.** Moissonner sur 7 jours puis titrer « volume sur 30 jours » aurait donné pour mesuré ce qui n'a jamais été collecté : le chiffre juste, l'étiquette fausse, et un lecteur en concluant que l'application consomme peu. La fenêtre effective se déduit désormais du **plus ancien horodatage réellement présent** — le seul chiffre qui reste vrai après un `reagreger()` ou un `resserrerBrut()`, et non la fenêtre qu'on avait demandée. La synthèse dit quand elle a été ramenée, et le motif de priorité cite la fenêtre réelle. La fiche la prend du journal entier et non de la première apparition de l'application affichée, sans quoi une application vue avant-hier aurait annoncé « volume sur 2 jours ».
+- **Le choix de l'action de moissonnage ne repose plus sur un ternaire.** `jours === 180 ? … : …` désignait silencieusement la fenêtre de 30 jours pour toute valeur autre que 180 — il devenait faux à l'instant où une troisième fenêtre apparaissait. Le nom se construit à partir de la fenêtre, et la table des actions refuse un nom qu'elle ne connaît pas.
+
+---
+
 ## [1.6.0] - 2026-09-07
 
 > **Le constat qui dérange :** *Une tâche qui se relance toute seule doit savoir constater qu'elle n'avance plus.*

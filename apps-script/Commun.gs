@@ -21,7 +21,7 @@
  * pire que pas de version du tout, puisqu'un déploiement Apps Script sert une
  * copie figée du code et qu'on ne peut pas deviner laquelle tourne.
  */
-const VERSION_ = '1.6.0';
+const VERSION_ = '1.7.0';
 
 /**
  * Marge de sécurité sous le plafond d'exécution, en millisecondes.
@@ -149,6 +149,7 @@ const ACTIONS_ = {
   demanderMoisson30: { dialogue: true, faire: () => moissonnerDepuisMenu_(30) },
   demanderInventaire: { dialogue: true, faire: () => inventorierDepuisMenu_() },
 
+  menuMoissonner7: { dialogue: true, faire: () => depuisMenu_('Moissonnage', () => moissonner(7)) },
   menuMoissonner180: { dialogue: true, faire: () => depuisMenu_('Moissonnage', () => moissonner(180)) },
   menuMoissonner30: { dialogue: true, faire: () => depuisMenu_('Moissonnage', () => moissonner(30)) },
   menuResserrerBrut30: { dialogue: true, faire: () => depuisMenu_('Resserrage', () => resserrerBrut(30)) },

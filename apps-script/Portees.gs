@@ -158,7 +158,7 @@ const pireNiveau_ = (a, b) => {
  */
 const SEUIL_DIFFUSION_ = 10;
 
-const evaluer_ = (app) => {
+const evaluer_ = (app, fenetreRecente = FENETRE_RECENTE_JOURS_) => {
   const motifs = [];
   let points = 0;
   const ajouter = (poids, libelle) => { points += poids; motifs.push(`${libelle} (+${poids})`); };
@@ -182,7 +182,7 @@ const evaluer_ = (app) => {
   // Ce qu'une application a réellement extrait pèse plus lourd que ce qu'elle
   // aurait le droit d'extraire : le premier est un fait, le second une capacité.
   if (app.octets30 >= SEUIL_VOLUME_30J_) {
-    ajouter(2, `${octets_(app.octets30)} extraits sur ${FENETRE_RECENTE_JOURS_} jours`);
+    ajouter(2, `${octets_(app.octets30)} extraits sur ${fenetreRecente} jours`);
   }
   if (app.porteesInconnues.size) {
     ajouter(1, `${app.porteesInconnues.size} portée(s) hors catalogue`);

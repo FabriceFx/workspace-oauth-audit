@@ -56,6 +56,11 @@ const GUIDE_ = [
     'Le reste de ce chapitre est là pour quand vous voulez reprendre la main.',
     '1. « Moissonner le journal — 180 jours » : lit le journal d\'audit OAuth du '
     + 'tenant et remplit les onglets. C\'est le point de départ, et il est peu coûteux.',
+    'Sur un parc dont vous ne connaissez pas encore le volume, commencez par la '
+    + 'fenêtre de 7 JOURS. Elle tient à coup sûr en une exécution et produit un '
+    + 'rapport complet, en petit : vous voyez à quoi ressemble le résultat avant '
+    + 'd\'engager 180 jours. La synthèse indique alors que la fenêtre courte a été '
+    + 'ramenée à 7 jours — les volumes ne se comparent qu\'à fenêtre égale.',
     '2. « Relever les profils des comptes » : va chercher dans l\'annuaire qui est '
     + 'administrateur, délégué ou suspendu. Rapide, et cela change la lecture.',
     '3. « Relever les jetons actifs » : interroge chaque compte, un par un. '

@@ -406,6 +406,10 @@ const TEXTES_ = {
 
   'menu.titre': { fr: 'Applications tierces', en: 'Third-party apps' },
   'menu.collecter': { fr: 'Collecter les données', en: 'Collect data' },
+  'menu.moissonner7': {
+    fr: 'Moissonner le journal d\'audit — 7 jours (essai)',
+    en: 'Harvest the audit log — 7 days (trial run)'
+  },
   'menu.moissonner180': {
     fr: 'Moissonner le journal d\'audit — 180 jours',
     en: 'Harvest the audit log — 180 days'

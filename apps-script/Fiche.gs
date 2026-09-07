@@ -58,6 +58,13 @@ const dossier_ = (classeur, cid) => {
     return i < 0 ? '' : app[i];
   };
 
+  // Le plus ancien horodatage de TOUT le journal collecté : c'est lui qui borne
+  // la fenêtre courte, et non la date d'apparition de l'application affichée.
+  // Les dates sont normalisées, donc comparables comme du texte.
+  const iPremiereVue = colonne(apps.entetes, 'Première vue');
+  const horoMinJournal = iPremiereVue < 0 ? '' : apps.lignes
+    .map((l) => jour_(l[iPremiereVue])).filter(Boolean).sort()[0] || '';
+
   const aut = lire('autorisants');
   const iAutCid = colonne(aut.entetes, 'client_id');
   const autorisants = aut.lignes.filter((l) => String(l[iAutCid]).trim() === cid)
@@ -117,6 +124,7 @@ const dossier_ = (classeur, cid) => {
     suspendus: champ('dont suspendus'),
     volume: champ('Volume'),
     volume30: champ(`Volume ${FENETRE_RECENTE_JOURS_} j`),
+    fenetreRecente: fenetreRecenteEffective_(horoMinJournal),
     motifs: champ('Motifs'),
     premiere: champ('Première vue'),
     derniere: champ('Dernière vue'),
@@ -223,7 +231,7 @@ const ficheHtml_ = (d, options) => {
     ${ligne(t_('fiche.graviteMax', lg), d.niveauMax ? t_(`niveau.${d.niveauMax}`, lg) : '', d.niveauMax ? t_(`note.${d.niveauMax}`, lg) : '')}
     ${ligne(t_('fiche.administration', lg), d.administration === 'oui' ? 'oui' : '', t_('fiche.administration.note', lg))}
     ${ligne(t_('fiche.autorisants', lg), d.autorisantsNb, t_('fiche.autorisants.note', lg, { p: d.privileges || 0, s: d.suspendus || 0 }))}
-    ${ligne(t_('fiche.volume', lg), d.volume, t_('fiche.volume.note', lg, { v: d.volume30 || '0 o', j: FENETRE_RECENTE_JOURS_ }))}
+    ${ligne(t_('fiche.volume', lg), d.volume, t_('fiche.volume.note', lg, { v: d.volume30 || '0 o', j: d.fenetreRecente }))}
     ${ligne(t_('fiche.observee', lg), `${d.premiere} ${t_('fiche.observee.au', lg)} ${d.derniere}`, t_('fiche.observee.note', lg))}
   </div>
 

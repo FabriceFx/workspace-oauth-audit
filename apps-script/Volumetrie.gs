@@ -47,6 +47,26 @@ const debutFenetreRecente_ = () =>
   jour_(new Date(Date.now() - FENETRE_RECENTE_JOURS_ * 24 * 3600 * 1000));
 
 /**
+ * La fenêtre courte réellement couverte par le journal collecté.
+ *
+ * Moissonner sur 7 jours puis titrer « volume sur 30 jours » donnerait pour
+ * mesuré ce qui n'a jamais été collecté : le chiffre serait juste, son étiquette
+ * fausse, et un lecteur en conclurait que l'application consomme peu. On annonce
+ * donc ce que le journal couvre, pas ce qu'on aurait aimé couvrir.
+ *
+ * Elle se déduit de la donnée — le plus ancien horodatage présent — et non de la
+ * fenêtre demandée : c'est le seul chiffre qui reste vrai après un reagreger()
+ * ou un resserrerBrut().
+ */
+const fenetreRecenteEffective_ = (horoMin) => {
+  if (!horoMin) return FENETRE_RECENTE_JOURS_;
+  const debut = new Date(`${horoMin}T00:00:00Z`).getTime();
+  if (isNaN(debut)) return FENETRE_RECENTE_JOURS_;
+  const jours = Math.round((Date.now() - debut) / (24 * 3600 * 1000));
+  return Math.max(1, Math.min(FENETRE_RECENTE_JOURS_, jours));
+};
+
+/**
  * Additionne un appel d'API dans les compteurs d'une application et dans le
  * détail par service. `recent` dit si l'appel tombe dans la fenêtre courte.
  */
