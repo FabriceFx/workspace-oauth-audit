@@ -7,6 +7,33 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.0] - 2026-09-07
+
+> **Le constat qui dérange :** *Une confirmation qui referme le compte rendu ne confirme rien du tout.*
+> Cette version part d'un remaniement d'interface — assistant en panneau latéral, dialogues à la place des alertes natives — dont l'intention était juste et dont trois branchements ne l'étaient pas. Un onglet brut qui ne se vidait plus, un rapport de révocation qui se fermait tout seul, une proposition d'action qui bouclait sans fin. Aucun des trois ne se voyait : le rapport restait plausible. C'est ce qui les rend chers.
+
+### Ajouté
+- **Assistant en panneau latéral** (`Sidebar.gs`) : l'étape suivante, ce qui la motive et l'avancement des quatre collectes restent sous les yeux pendant qu'on travaille, au lieu de tenir sur une ligne de menu lue à l'ouverture puis oubliée.
+- **Le panneau ne sonde pas le classeur.** L'état ne change que lorsque l'utilisateur agit : la relecture se fait au chargement, après chaque action et sur demande explicite. Un rafraîchissement périodique aurait relu intégralement l'onglet des décisions plusieurs centaines de fois par heure, pour rien.
+- **Nouvelle étape « préparer le plan de révocation »**, proposée dès qu'une décision « à bloquer » n'est couverte par aucun plan — le seul moment du déroulé que rien ne rappelait.
+- **Table d'actions nommées** (`ACTIONS_`, `Commun.gs`) : une fermeture ne traverse pas `google.script.run`, l'assistant désigne donc ses actions par leur nom. Le banc parcourt la table et vérifie qu'aucune étape ne nomme une action inexistante — sans quoi un nom mal orthographié ferait un bouton qui ne fait rien, en silence.
+- **Statuts de décision bilingues** : la liste déroulante s'écrit dans la langue de l'interface, et `estStatut_` reconnaît les deux. Un classeur classé en français ne perd pas une décision en basculant en anglais.
+- **Menu, assistant et dialogues de confirmation traduits.** Les noms d'onglets cités dans les messages sont ceux du classeur : citer « _Brut » à qui possède un onglet « _Raw » l'envoie chercher ce qui n'existe pas.
+
+### Corrigé
+- **L'onglet brut n'était plus vidé au démarrage d'une campagne.** Le vidage vivait dans l'appelant du menu ; l'assistant et le nouveau dialogue de confirmation ne passaient plus par lui. Or le moissonnage écrit **en ajout**, à partir de `getLastRow()` : une seconde campagne empilait sa fenêtre sur la précédente. Volumes doublés, premières apparitions avancées, aucune erreur affichée. Le vidage appartient désormais à `moissonner()`, seul à savoir distinguer une campagne neuve d'une reprise — une reprise, elle, ne doit surtout pas vider.
+- **Le compte rendu se fermait tout seul.** Le bouton de confirmation demandait la fermeture de sa fenêtre au retour du serveur, alors que le serveur venait d'ouvrir par-dessus le dialogue du résultat. Pour une révocation, c'est le seul endroit où l'on apprend ce qui a été supprimé. L'action déclare maintenant si elle produit son propre compte rendu, et le client ne ferme que dans le cas contraire.
+- **L'étape « à bloquer » bouclait sans fin.** Le statut ne change pas quand le plan est appliqué : l'assistant reproposait indéfiniment de préparer un plan déjà exécuté, sur un inventaire devenu périmé. La proposition ne vaut désormais que pour les décisions qu'aucun plan ne couvre.
+- **Avertissement de révocation de son propre jeton remis en évidence** : il occupe son propre bloc, en tête et en rouge, au lieu d'être ajouté à la suite d'un texte long dans une fenêtre trop courte pour l'afficher.
+- **`etatDuTravail_` ne lit plus qu'une fois chaque onglet.** Il tourne à chaque ouverture du classeur et à chaque rafraîchissement de l'assistant ; il lisait deux fois l'onglet des décisions.
+- **Commentaires de conception rétablis** dans `WebApp.gs` et `Fiche.gs`, dont celui qui explique pourquoi `XFrameOptionsMode` vaut `DEFAULT` et qu'il n'existe pas de `DENY`. Sans lui, la correction de 1.2.1 se refait.
+
+### Non fait, et pourquoi
+- **Les comptes rendus d'exécution restent en français** — les 332 appels à `dire_` et les titres de leurs dialogues. Traduire le titre au-dessus d'un texte français produirait un résultat pire que l'état actuel : c'est un bloc à traiter d'un tenant, avec le guide (39 paragraphes) et l'aide.
+- **Le vocabulaire des statuts n'est pas retraduit dans les classeurs existants.** Les valeurs déjà tapées restent telles quelles et continuent d'être reconnues ; seule la liste déroulante suit la langue. Réécrire des décisions humaines pour les uniformiser serait exactement ce que le référentiel interdit.
+
+---
+
 ## [1.4.0] - 2026-09-06
 
 > **Le constat qui dérange :** *Celui à qui l'on écrit n'a pas choisi la langue de l'outil — ni l'outil.*

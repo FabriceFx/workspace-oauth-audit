@@ -290,7 +290,7 @@ Modules pressentis, sur le découpage de la passerelle : `Journal` (Reports),
 | ✅ **1.2** | vue web de consultation, en lecture seule | il y a enfin quelque chose à montrer à qui n'a pas le classeur |
 | ✅ **1.3** | menu qui dit lui-même la prochaine étape | on ne se perd plus dans ses propres actions |
 | ✅ **1.4** | bilinguisme de ce qui sort du classeur — courriel, vue, fiche | on peut écrire à qui ne lit pas le français |
-| **1.5** | bilinguisme du classeur — menu, dialogues, guide, onglets et colonnes | l'outil lui-même se lit en anglais |
+| ✅ **1.5** | assistant en panneau latéral ; bilinguisme du classeur — menu, dialogues, onglets, colonnes, statuts | l'outil se lit en anglais, et dit en permanence où l'on en est |
 | **2.0** | historisation au-delà des 6 mois, détection de dérive, nouvelle application signalée | la surveillance continue |
 
 La v0.1 est un script de quelques dizaines de lignes. Elle est là pour tuer le
@@ -325,7 +325,8 @@ un message qui le dit.
 | `Fiche.gs` | v1.0 — la fiche d'une application, imprimable |
 | `Revocation.gs` | v1.1 — révocation, en plan puis application |
 | `WebApp.gs` | v1.2 — vue de consultation, en lecture seule |
-| `Langues.gs` | v1.4 — réglages de langue et dictionnaire |
+| `Langues.gs` | v1.4 — réglages de langue, dictionnaire, statuts bilingues |
+| `Sidebar.gs` | v1.5 — assistant en panneau latéral |
 | `banc/test.js` | banc d'essai hors Google, `node banc/test.js` |
 
 Tout se pilote depuis le menu **Applications tierces** du classeur. Depuis
@@ -355,15 +356,32 @@ Tout le reste est privé, suffixé d'un souligné : les fonctions ainsi nommées
 n'apparaissent pas dans le menu d'exécution de l'éditeur, et ne peuvent donc pas
 être lancées par mégarde à la place de `moissonner()`.
 
-### Le menu du classeur
+### Le menu du classeur, et l'assistant
 
 `onOpen` étant un déclencheur simple sur un script lié, le menu apparaît de
 lui-même, sans rien à installer : moissonner sur 180 ou 30 jours, rejouer
 l'agrégation, suivre ou annuler la campagne, afficher ou masquer l'onglet brut.
 
+Sa première entrée ouvre l'**assistant**, un panneau latéral qui tient sous les
+yeux la prochaine étape, ce qui la motive, et l'avancement des quatre collectes.
+Le menu répondait déjà à « et maintenant ? », mais seulement au moment de
+l'ouvrir, et sur une seule ligne. Le panneau ne sonde pas le classeur : l'état ne
+change que lorsqu'on agit, et le relire en boucle coûterait du quota
+d'exécution pour rien. Il se met à jour au chargement, après chaque action, et
+sur le lien « Actualiser ».
+
+Un clic depuis l'assistant passe par la **même confirmation** qu'un clic dans le
+menu. Ce dialogue attend le retour du serveur avant de se fermer — et ne se
+ferme pas du tout quand l'action produit son propre compte rendu, sous peine de
+refermer le rapport de révocation, seul endroit où l'on apprend ce qui a été
+supprimé.
+
 Relancer un moissonnage vide d'abord le brut : deux fenêtres empilées dans un
 même onglet produiraient un rapport faux sans le dire. La question est posée
-avant, et l'écrasement annoncé.
+avant, et l'écrasement annoncé. **Le vidage appartient à `moissonner()`**, et non
+au menu : c'est la seule fonction qui sache distinguer une campagne neuve d'une
+reprise — et l'avoir laissé chez l'appelant a suffi, une fois, pour que
+l'assistant le saute sans que rien ne le dise.
 
 Les comptes rendus partent dans un dialogue plutôt que dans le journal
 d'exécution, que l'utilisateur d'un classeur ne voit pas — et les erreurs y
@@ -703,18 +721,22 @@ créé avant cette version n'a que le bloc français : le bloc anglais lui est
 ajouté à la première lecture, plutôt que d'obliger à recréer l'onglet et à perdre
 les amendements déjà faits.
 
-### Ce qui est traduit en v1.4, et ce qui ne l'est pas
+### Ce qui est traduit en v1.5, et ce qui ne l'est pas
 
-Traduit : **ce qui sort du classeur** — le courriel de sollicitation, la vue de
-consultation, la fiche d'application. Ce sont les surfaces lues par des gens qui
-n'ont pas choisi l'outil.
+Traduit : **ce qui sort du classeur** — courriel de sollicitation, vue de
+consultation, fiche d'application (v1.4) — et **le classeur lui-même** : menu,
+assistant, dialogues de confirmation, noms d'onglets, en-têtes de colonnes et
+liste déroulante des statuts (v1.5).
 
-Pas encore : **le classeur lui-même** — menu, dialogues, guide, noms d'onglets et
-d'en-têtes de colonnes. Ce n'est pas un oubli mais un ordre de travail. Les noms
-d'onglets et les en-têtes servent de **clés de lecture en cinquante-trois
-endroits** : les traduire demande une couche de résolution qui accepte les deux
-langues, sans quoi un classeur commencé en français cesserait de fonctionner le
-jour où l'on bascule. C'est la v1.5.
+La bascule d'une langue à l'autre **renomme** les onglets et réaligne les
+en-têtes ; elle ne duplique rien et ne perd aucune décision. Les valeurs déjà
+tapées dans la colonne `Statut` restent telles quelles et continuent d'être
+reconnues : ce sont des décisions humaines, le code n'en réécrit pas.
+
+Pas encore : **les comptes rendus d'exécution** — les 332 appels à `dire_` et les
+titres de leurs dialogues — ainsi que l'onglet `Guide` et l'aide. Traduire le
+titre au-dessus d'un texte français produirait un résultat pire que l'état
+actuel : c'est un bloc à traiter d'un tenant.
 
 ## Ce que le journal permet de dire, et ce qu'il ne permet pas
 

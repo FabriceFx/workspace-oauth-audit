@@ -242,7 +242,8 @@ const agreger_ = (classeur, etat) => {
     dire_('« suspendus » resteront vides. Menu > Relever les profils des comptes.');
   }
   dire_('');
-  dire_(`L'onglet ${ONGLET_BRUT_} est masqué, pas supprimé : c'est la pièce`);
+  dire_(`L'onglet ${nomOnglet_('brut', langueInterface_())} est masqué, pas `
+    + 'supprimé : c\'est la pièce');
   dire_('justificative du rapport. Ne le partagez pas plus largement que le reste.');
   dire_('Pour le revoir : menu « Applications tierces » > « Afficher l\'onglet brut ».');
   vider_('Rapport prêt');

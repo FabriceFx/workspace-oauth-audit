@@ -21,7 +21,7 @@
  * pire que pas de version du tout, puisqu'un déploiement Apps Script sert une
  * copie figée du code et qu'on ne peut pas deviner laquelle tourne.
  */
-const VERSION_ = '1.4.0';
+const VERSION_ = '1.5.0';
 
 /**
  * Marge de sécurité sous le plafond d'exécution, en millisecondes.
@@ -39,7 +39,6 @@ const BUDGET_MS = 4.5 * 60 * 1000;
 /** Quota Admin SDK Directory : 2 400 requêtes/minute/utilisateur/projet. */
 const QUOTA_DIRECTORY_PAR_MIN = 2400;
 
-const ONGLET_BRUT_ = '_Brut';
 
 /** Identifiants de colonnes, jamais des libellés : voir Langues.gs. */
 const COLONNES_BRUT_ = [
@@ -69,6 +68,19 @@ const echapper_ = (texte) => String(texte ?? "")
   .replace(/"/g, "&quot;")
   .replace(/'/g, "&#39;");
 
+/**
+ * La langue de l'interface, pour les rendus qui n'ont pas reçu de classeur.
+ * Elle ne doit jamais faire échouer un compte rendu : un onglet Paramètres
+ * absent ou illisible rend le français, pas une exception.
+ */
+const langueInterface_ = () => {
+  try {
+    return reglages_(classeurCourant_()).interface;
+  } catch (e) {
+    return LANGUE_DEFAUT_;
+  }
+};
+
 const vider_ = (titre = 'Applications tierces') => {
   const texte = CR_.lignes.join('\n');
   CR_.lignes = [];
@@ -76,15 +88,149 @@ const vider_ = (titre = 'Applications tierces') => {
     console.log(texte);
     return;
   }
-  // Un dialogue plutôt qu'une alerte : les comptes rendus dépassent vite ce
-  // qu'une alerte affiche, et on veut pouvoir les copier.
+  const css = `
+    body { font-family: 'Google Sans', Roboto, Arial, sans-serif; margin: 0; padding: 24px; color: #1f1f1f; background: #fff; }
+    .console-box { 
+      background: #f0f4f9; border-radius: 12px; padding: 16px; 
+      font-family: 'Google Sans Mono', 'Roboto Mono', ui-monospace, Consolas, monospace;
+      font-size: 13px; line-height: 1.5; white-space: pre-wrap;
+      max-height: 340px; overflow-y: auto; color: #444746; border: 1px solid #c4c7c5;
+    }
+    .actions { margin-top: 24px; text-align: right; }
+    button {
+      background: #0b57d0; color: #fff; border: none; border-radius: 100px;
+      padding: 10px 24px; font-size: 14px; font-weight: 500; cursor: pointer;
+      font-family: inherit; transition: background 0.2s, box-shadow 0.2s;
+    }
+    button:hover { background: #0842a0; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
+    button:active { background: #062e6f; }
+  `;
   const html = HtmlService
-    .createHtmlOutput(`<pre style="font:12px/1.45 ui-monospace,Menlo,Consolas,`
-      + `monospace;white-space:pre-wrap;margin:0">${echapper_(texte)}</pre>`)
+    .createHtmlOutput(`<!DOCTYPE html><html><head>
+      <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Google+Sans+Mono&display=swap" rel="stylesheet">
+      <style>${css}</style></head><body>
+      <div class="console-box">${echapper_(texte)}</div>
+      <div class="actions"><button onclick="google.script.host.close()">${
+        echapper_(t_('dialogue.fermer', langueInterface_()))}</button></div>
+      </body></html>`)
     .setWidth(720)
-    .setHeight(460);
+    .setHeight(500);
   SpreadsheetApp.getUi().showModalDialog(html, titre);
 };
+
+/**
+ * Les actions du menu et de l'assistant, sous le seul nom que le client
+ * connaît. Une table plutôt qu'une cascade de `else if` : le banc peut la
+ * parcourir et vérifier qu'aucune étape ne désigne une action inexistante —
+ * un nom mal orthographié ferait sinon un bouton qui ne fait rien, en silence.
+ *
+ * `dialogue: true` dit que l'action ouvre elle-même son compte rendu. Le client
+ * ne doit alors PAS fermer sa fenêtre : le serveur a déjà remplacé le dialogue
+ * de confirmation par celui du résultat, et fermer refermerait le résultat.
+ */
+const ACTIONS_ = {
+  // Les entrées « demander » ouvrent la confirmation ; ce sont elles que
+  // l'assistant désigne, pour qu'un clic depuis le panneau latéral passe par la
+  // même garde qu'un clic dans le menu.
+  demanderMoisson180: { dialogue: true, faire: () => moissonnerDepuisMenu_(180) },
+  demanderMoisson30: { dialogue: true, faire: () => moissonnerDepuisMenu_(30) },
+  demanderInventaire: { dialogue: true, faire: () => inventorierDepuisMenu_() },
+
+  menuMoissonner180: { dialogue: true, faire: () => depuisMenu_('Moissonnage', () => moissonner(180)) },
+  menuMoissonner30: { dialogue: true, faire: () => depuisMenu_('Moissonnage', () => moissonner(30)) },
+  menuInventorier: { dialogue: true, faire: () => depuisMenu_('Inventaire', inventorierJetons) },
+  menuRafraichirComptes: { dialogue: true, faire: () => depuisMenu_('Profils des comptes', rafraichirComptes) },
+  preparerRevocations: { dialogue: true, faire: () => depuisMenu_('Plan de révocation', preparerRevocations) },
+  appliquerRevocations: { dialogue: true, faire: () => depuisMenu_('Révocations', () => appliquerRevocations({ forcer: true })) },
+  preparerSollicitations: { dialogue: true, faire: () => depuisMenu_('Plan d\'envoi', preparerSollicitations) },
+  envoyerSollicitations: { dialogue: true, faire: () => depuisMenu_('Envoi', () => envoyerSollicitations({ forcer: true })) },
+  ouvrirRevocations: { dialogue: false, faire: () => ouvrir_('revocations') },
+  ouvrirSollicitations: { dialogue: false, faire: () => ouvrir_('sollicitations') },
+  ouvrirAInstruire: { dialogue: false, faire: () => ouvrir_('aInstruire') },
+  ouvrirDecisions: { dialogue: false, faire: () => ouvrir_('decisions') }
+};
+
+/**
+ * Une confirmation avant l'irréversible, dans une fenêtre qu'on peut lire en
+ * entier — l'alerte native tronque, et le texte qui compte est justement celui
+ * qu'on tronque.
+ *
+ * Le bouton de validation appelle le serveur ; il ne ferme la fenêtre que si
+ * l'action n'a pas produit son propre compte rendu. Fermer d'office refermait
+ * le rapport de révocation, seul endroit où l'on apprend ce qui a été supprimé.
+ */
+const confirmer_ = (titre, question, actionName, avertissement = '') => {
+  if (!ACTIONS_[actionName]) throw new Error(`Action inconnue : ${actionName}`);
+  const lg = langueInterface_();
+  const hauteur = 300 + (avertissement ? 110 : 0)
+    + Math.min(260, Math.floor(String(question).length / 60) * 22);
+  const css = `
+    body { font-family: 'Google Sans', Roboto, Arial, sans-serif; margin: 0; padding: 24px; color: #1f1f1f; background: #fff; display: flex; flex-direction: column; height: calc(100% - 48px); box-sizing: border-box; }
+    .avert { background: #fce8e6; border: 1px solid #f5c1bb; color: #a50e0e; border-radius: 12px; padding: 14px 18px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; margin-bottom: 16px; }
+    .avert strong { display: block; margin-bottom: 4px; }
+    .question { flex: 1; font-size: 15px; line-height: 1.5; white-space: pre-wrap; color: #444746; overflow-y: auto; }
+    .actions { margin-top: 20px; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+    .note { flex: 1; font-size: 12.5px; color: #5f6368; }
+    button { border: none; border-radius: 100px; padding: 10px 24px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; transition: background 0.2s, box-shadow 0.2s; }
+    .btn-cancel { background: transparent; color: #0b57d0; border: 1px solid #747775; padding: 9px 23px; }
+    .btn-cancel:hover { background: #f0f4f9; }
+    .btn-ok { background: #0b57d0; color: #fff; display: inline-flex; align-items: center; }
+    .btn-ok:hover { background: #0842a0; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
+    .btn-ok:disabled { background: #e3e3e3; color: #8e8e8e; cursor: not-allowed; box-shadow: none; }
+    #spinner { display: none; margin-right: 8px; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .spin { animation: spin 1s linear infinite; }
+  `;
+  const html = HtmlService.createHtmlOutput(`<!DOCTYPE html><html><head>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>${css}</style></head><body>
+    ${avertissement ? `<div class="avert"><strong>${
+      echapper_(t_('dialogue.attention', lg))}</strong>${echapper_(avertissement)}</div>` : ''}
+    <div class="question">${echapper_(question)}</div>
+    <div class="actions">
+      <div class="note">${echapper_(t_('dialogue.rienNeSeraFait', lg))}</div>
+      <button class="btn-cancel" onclick="google.script.host.close()" id="btn-cancel">${
+        echapper_(t_('dialogue.annuler', lg))}</button>
+      <button class="btn-ok" onclick="valider()" id="btn-ok">
+        <svg id="spinner" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+        ${echapper_(t_('dialogue.confirmer', lg))}
+      </button>
+    </div>
+    <script>
+      function valider() {
+        document.getElementById('btn-ok').disabled = true;
+        document.getElementById('btn-cancel').style.display = 'none';
+        document.getElementById('spinner').style.display = 'inline-block';
+        google.script.run
+          .withSuccessHandler(function (ouvreUnDialogue) {
+            // Si le serveur a ouvert son compte rendu, il a déjà remplacé cette
+            // fenêtre : la fermer fermerait le rapport.
+            if (!ouvreUnDialogue) google.script.host.close();
+          })
+          .withFailureHandler(function (err) {
+            document.body.innerHTML = '<div style="padding:24px;color:#b3261e;'
+              + 'font-size:14px;font-family:Roboto,sans-serif">'
+              + ${JSON.stringify(echapper_(t_('dialogue.erreur', lg)))} + ' : ' + err.message + '</div>';
+          })
+          .executerAction_ui(${JSON.stringify(actionName)});
+      }
+    </script></body></html>`).setWidth(520).setHeight(hauteur);
+  SpreadsheetApp.getUi().showModalDialog(html, titre);
+};
+
+/**
+ * Le point d'entrée de `google.script.run`. Il doit rester une `function`
+ * déclarée : le client le résout par son nom global. Le suffixe `_ui` marque
+ * qu'il n'est pas fait pour être lancé depuis l'éditeur.
+ *
+ * Rend `true` quand l'action a ouvert son propre dialogue.
+ */
+function executerAction_ui(nomAction) {
+  const action = ACTIONS_[nomAction];
+  if (!action) throw new Error(`Action inconnue : ${nomAction}`);
+  action.faire();
+  return action.dialogue;
+}
 
 /** Aplatit les paramètres d'un événement en objet nom -> valeur. */
 const parametres_ = (evenement) => {

@@ -134,7 +134,7 @@ vm.createContext(sandbox);
 for (const f of ['Commun.gs', 'Langues.gs', 'Journal.gs', 'Decision.gs', 'Comptes.gs',
   'Portees.gs', 'Volumetrie.gs', 'Inventaire.gs', 'Feuille.gs',
   'Sollicitation.gs', 'Revocation.gs', 'Guide.gs', 'Fiche.gs', 'WebApp.gs',
-  'Menu.gs']) {
+  'Menu.gs', 'Sidebar.gs']) {
   vm.runInContext(fs.readFileSync(P + f, 'utf8'), sandbox, { filename: f });
 }
 // Les déclarations `const` de portée globale ne deviennent pas des propriétés de
@@ -153,7 +153,9 @@ const {
   etatDuTravail_, prochaineEtape_, VERSION_, ONGLETS_, COLONNES_,
   nomOnglet_, chercherOnglet_, ongletCanonique_,
   t_, TEXTES_, LANGUES_, langueValide_, langueDe_, reglages_, enClairLangue_,
-  dateLisibleLangue_
+  dateLisibleLangue_,
+  estStatut_, nomStatut_, statutsEn_, ACTIONS_, STATUTS_LANGUE_,
+  moissonner, entetesBrut_
 } = Object.fromEntries([
   'famille_', 'domaine_', 'portees_', 'octets_', 'classer_', 'lignesDe_',
   'agreger_', 'brutCourant_', 'etatPresume_', 'COLONNES_BRUT_',
@@ -167,7 +169,9 @@ const {
   'etatDuTravail_', 'prochaineEtape_', 'VERSION_', 'ONGLETS_', 'COLONNES_',
   'nomOnglet_', 'chercherOnglet_', 'ongletCanonique_',
   't_', 'TEXTES_', 'LANGUES_', 'langueValide_', 'langueDe_', 'reglages_',
-  'enClairLangue_', 'dateLisibleLangue_'
+  'enClairLangue_', 'dateLisibleLangue_',
+  'estStatut_', 'nomStatut_', 'statutsEn_', 'ACTIONS_', 'STATUTS_LANGUE_',
+  'moissonner', 'entetesBrut_'
 ].map((n) => [n, pris(n)]));
 
 let echecs = 0;
@@ -261,7 +265,7 @@ verifier('et elle est bien formée', /^\d+\.\d+\.\d+$/.test(VERSION_), true);
 // Les en-têtes annoncent une version d'INTRODUCTION, jamais une version courante.
 const entetesFichiers = fs.readdirSync(P).filter((f) => f.endsWith('.gs'))
   .map((f) => ({ f, ligne: fs.readFileSync(P + f, 'utf8').split('\n')[1] }));
-verifier('tous les fichiers ont un en-tête', entetesFichiers.length, 16);
+verifier('tous les fichiers ont un en-tête', entetesFichiers.length, 17);
 const sansIntroduction = entetesFichiers
   .filter((e) => !/introduit\w* en v\d+\.\d+/.test(e.ligne));
 verifier('chacun dit quand il est apparu',
@@ -759,7 +763,8 @@ verifier('une application approuvée non plus',
   classeurActif.getSheetByName('Révocations').getLastRow() - 1, 0);
 
 // seule « à bloquer », décision en vigueur, produit des lignes
-dec2.getRange(ligneDe('cidZ'), colDec('statut')).setValue(STATUT_REVOCABLE_);
+dec2.getRange(ligneDe('cidZ'), colDec('statut'))
+  .setValue(nomStatut_(STATUT_REVOCABLE_, 'fr'));
 dec2.getRange(ligneDe('cidZ'), colDec('motif')).setValue('Éditeur inconnu');
 dec2.getRange(ligneDe('cidZ'), colDec('decidePar')).setValue('RSSI');
 preparerRevocations();
@@ -910,6 +915,152 @@ verifier('le classeur, lui, nomme les comptes',
 // un identifiant inconnu ne doit rien apprendre à qui l'essaie
 verifier('un client_id inventé ramène à l\'accueil',
   doGetSimule('cidInvente').includes('Où en est le parc'), true);
+
+
+// ===========================================================================
+// Les cas qui auraient attrapé les défauts de la v1.5. Chacun correspond à un
+// défaut réellement introduit, et échoue si on le réintroduit.
+// ===========================================================================
+
+console.log('\nMenu — aucune étape ne désigne une action qui n\'existe pas');
+// Un actionName mal orthographié ne casse rien à la lecture : il fait un bouton
+// qui ne fait rien, en silence. Seule cette vérification le voit.
+const etatsPossibles = [
+  {},
+  { journal: true },
+  { journal: true, profils: true },
+  { journal: true, profils: true, jetons: true },
+  { journal: true, profils: true, jetons: true, nonClassees: 3 },
+  { journal: true, profils: true, jetons: true, nonClassees: 3, aInstruire: true },
+  { journal: true, aBloquer: 2 },
+  { journal: true, envoisEnAttente: 4 },
+  { journal: true, revocationsEnAttente: 5 }
+];
+const base = {
+  journal: false, profils: false, jetons: false, aInstruire: false,
+  nonClassees: 0, aBloquer: 0, envoisEnAttente: 0, revocationsEnAttente: 0
+};
+const nomsRendus = etatsPossibles
+  .map((o) => prochaineEtape_({ ...base, ...o }).actionName);
+verifier('chaque étape nomme une action de la table',
+  nomsRendus.filter((n) => !ACTIONS_[n]), []);
+verifier('… et toutes les branches sont couvertes',
+  new Set(nomsRendus).size >= 6, true);
+verifier('une action inconnue est refusée, pas ignorée',
+  (() => { try { pris('executerAction_ui')('nExistePas'); return false; }
+    catch (e) { return /inconnue/.test(e.message); } })(), true);
+verifier('chaque action dit si elle ouvre son propre dialogue',
+  Object.keys(ACTIONS_).filter((n) => typeof ACTIONS_[n].dialogue !== 'boolean'), []);
+
+console.log('\nStatuts — le classeur est classé dans une langue, lu dans les deux');
+verifier('le libellé français est reconnu', estStatut_('à bloquer', 'aBloquer'), true);
+verifier('le libellé anglais aussi', estStatut_('to block', 'aBloquer'), true);
+verifier('les espaces et la casse ne trompent pas',
+  estStatut_('  À Bloquer ', 'aBloquer'), true);
+verifier('un autre statut ne passe pas', estStatut_('approuvée', 'aBloquer'), false);
+verifier('un statut vide non plus', estStatut_('', 'aBloquer'), false);
+verifier('la liste déroulante suit la langue',
+  statutsEn_('en').indexOf('to block') >= 0, true);
+verifier('… et reste complète', statutsEn_('fr').length,
+  Object.keys(STATUTS_LANGUE_).length);
+
+console.log('\nAssistant — la proposition de blocage sait s\'arrêter');
+// Sans sortie, l'assistant reproposait indéfiniment de préparer un plan déjà
+// préparé : le statut « à bloquer », lui, ne change pas quand le plan est appliqué.
+const faireClasseurBlocage = (planifie) => {
+  const c = new FauxClasseur([]);
+  const d = c.insertSheet('Décisions');
+  d.getRange(1, 1, 2, COLONNES_DECISIONS_.length).setValues([
+    entetesEn_(COLONNES_DECISIONS_, 'fr'),
+    ['cidX', 'Vieil outil', 'à bloquer', '', '', '', '', '', '']
+  ]);
+  const r = c.insertSheet('Révocations');
+  const lignesPlan = [entetesEn_(COLONNES_REVOCATIONS_, 'fr')];
+  if (planifie) {
+    lignesPlan.push(['bob@exemple.fr', 'exemple.fr', '', 'Vieil outil', 'cidX',
+      '', 'rssi', '', 'révoqué', '2026-09-01', '2026-09-01', 'ok']);
+  }
+  r.getRange(1, 1, lignesPlan.length, COLONNES_REVOCATIONS_.length).setValues(lignesPlan);
+  return c;
+};
+verifier('sans plan, le blocage est proposé',
+  etatDuTravail_(faireClasseurBlocage(false)).aBloquer, 1);
+verifier('une fois le plan appliqué, il ne l\'est plus',
+  etatDuTravail_(faireClasseurBlocage(true)).aBloquer, 0);
+verifier('… et l\'étape suivante n\'est plus le blocage',
+  prochaineEtape_({ ...base, journal: true, profils: true, jetons: true,
+    aBloquer: 0 }).actionName === 'preparerRevocations', false);
+
+console.log('\nLangues — le menu et l\'assistant parlent la langue réglée');
+verifier('l\'étape est traduite',
+  prochaineEtape_({ ...base }, 'en').libelle, t_('etape.commencer', 'en'));
+verifier('… et son pourquoi aussi',
+  prochaineEtape_({ ...base }, 'en').pourquoi, t_('etape.commencer.pourquoi', 'en'));
+verifier('rien ne reste en français dans l\'étape anglaise',
+  /journal d'audit|Terminer|Classer/.test(prochaineEtape_({ ...base }, 'en').libelle), false);
+const panneauEn = pris('htmlAssistant_')('en');
+verifier('le panneau latéral est traduit', panneauEn.includes('Progress'), true);
+verifier('… sans libellé français oublié',
+  /Avancement|Actualiser l|Jetons actifs/.test(panneauEn), false);
+verifier('le panneau ne sonde plus le classeur',
+  /setInterval/.test(panneauEn), false);
+
+console.log('\nMoissonnage — une campagne neuve ne s\'empile pas sur la précédente');
+// Le défaut : moissonner écrit en ajout à partir de getLastRow(). Sans vidage,
+// la seconde campagne doublait les volumes et avançait la première apparition,
+// sans qu'aucune erreur ne s'affiche.
+const proprietes = new Map();
+sandbox.PropertiesService = {
+  getScriptProperties: () => ({
+    getProperty: (k) => (proprietes.has(k) ? proprietes.get(k) : null),
+    setProperty: (k, v) => { proprietes.set(k, v); },
+    deleteProperty: (k) => { proprietes.delete(k); }
+  })
+};
+sandbox.ScriptApp = {
+  getProjectTriggers: () => [],
+  newTrigger: () => ({ timeBased: () => ({ after: () => ({ create: () => {} }) }) })
+};
+sandbox.AdminReports = {
+  Activities: {
+    list: () => ({
+      items: [{
+        id: { time: '2026-09-01T10:00:00.000Z' },
+        actor: { email: 'bob@exemple.fr' },
+        events: [{
+          name: 'authorize',
+          parameters: [
+            { name: 'app_name', value: 'NotebookLM' },
+            { name: 'client_id', value: 'cidA' },
+            { name: 'scope', multiValue: [`${J}drive.readonly`] }
+          ]
+        }]
+      }]
+    })
+  }
+};
+
+const memoireClasseur = classeurActif;
+classeurActif = new FauxClasseur(['Feuille 1']);
+moissonner(30);
+const brutApres1 = chercherOnglet_(classeurActif, 'brut').getLastRow();
+moissonner(30);
+const brutApres2 = chercherOnglet_(classeurActif, 'brut').getLastRow();
+verifier('la première campagne écrit sa ligne', brutApres1, 2);
+verifier('la seconde REMPLACE au lieu d\'empiler', brutApres2, brutApres1);
+verifier('et les en-têtes survivent au vidage',
+  chercherOnglet_(classeurActif, 'brut').cells[0][0],
+  entetesEn_(COLONNES_BRUT_, 'fr')[0]);
+
+// Une reprise, elle, ne doit surtout pas vider : elle continue la même campagne.
+proprietes.set('moisson', JSON.stringify({
+  jours: 30, debut: '2026-08-08T00:00:00.000Z', lancee: '2026-09-01T00:00:00.000Z',
+  pageToken: null, pages: 1, evenements: 1, lignes: 1, reprises: 0
+}));
+moissonner();
+verifier('une reprise ajoute, elle ne vide pas',
+  chercherOnglet_(classeurActif, 'brut').getLastRow(), brutApres1 + 1);
+classeurActif = memoireClasseur;
 
 console.log(`\n${echecs ? `${echecs} échec(s)` : 'tout passe'}`);
 process.exit(echecs ? 1 : 0);

@@ -274,6 +274,39 @@ const entetesEn_ = (ids, lg) => ids.map((id) => nomColonne_(id, lg));
 const ETATS_A_ENVOYER_ = ['à envoyer', 'to send'];
 const ETATS_A_REVOQUER_ = ['à révoquer', 'to revoke'];
 
+/**
+ * Les cinq statuts du référentiel des décisions. Ce sont eux aussi des données
+ * — un administrateur les a tapés — et non des libellés qu'on réécrit : la
+ * liste déroulante s'affiche dans la langue courante, mais la lecture reconnaît
+ * les deux langues. Un classeur classé en français bascule donc en anglais sans
+ * perdre une seule décision.
+ *
+ * Ne JAMAIS comparer un statut par égalité de chaîne : passer par estStatut_.
+ */
+const STATUTS_LANGUE_ = {
+  approuvee: { fr: 'approuvée', en: 'approved' },
+  toleree: { fr: 'tolérée', en: 'tolerated' },
+  aInstruire: { fr: 'à instruire', en: 'to review' },
+  aBloquer: { fr: 'à bloquer', en: 'to block' },
+  bloquee: { fr: 'bloquée', en: 'blocked' }
+};
+
+const ORDRE_STATUTS_ = ['approuvee', 'toleree', 'aInstruire', 'aBloquer', 'bloquee'];
+
+const nomStatut_ = (id, lg) => (STATUTS_LANGUE_[id] || {})[lg]
+  || (STATUTS_LANGUE_[id] || {})[LANGUE_DEFAUT_] || id;
+
+/** La liste déroulante, dans la langue de l'interface. */
+const statutsEn_ = (lg) => ORDRE_STATUTS_.map((id) => nomStatut_(id, lg));
+
+/** Une valeur lue dans le classeur est-elle ce statut, quelle qu'en soit la langue ? */
+const estStatut_ = (valeur, id) => {
+  const t = STATUTS_LANGUE_[id];
+  if (!t) return false;
+  const v = String(valeur || '').trim().toLowerCase();
+  return LANGUES_.some((l) => t[l] && v === t[l].toLowerCase());
+};
+
 // ------------------------------------------------------------- dictionnaire
 
 /**
@@ -411,7 +444,6 @@ const TEXTES_ = {
   'menu.guide': { fr: 'Guide complet', en: 'Full guide' },
   'menu.aide': { fr: 'Aide — le déroulé en bref', en: 'Help — the sequence in brief' },
   'menu.aPropos': { fr: 'À propos', en: 'About' },
-  'menu.parOuCommencer': { fr: 'Par où commencer ?', en: 'Where to start?' },
 
   'etape.commencer': {
     fr: 'Commencer : moissonner le journal d\'audit',
@@ -488,6 +520,85 @@ const TEXTES_ = {
       + 'their own.'
   },
   'etape.continuer': { fr: 'Continuer ?', en: 'Continue?' },
+
+  'etape.bloquer': {
+    fr: 'Préparer le plan de révocation',
+    en: 'Prepare the revocation plan'
+  },
+  'etape.bloquer.pourquoi': {
+    fr: '{n} application(s) sont jugées « {statut} » sans qu\'un plan les couvre. '
+      + 'L\'outil procède en deux temps : il dresse d\'abord la liste des jetons '
+      + 'touchés, que vous relisez, avant que rien ne soit supprimé.',
+    en: '{n} application(s) are judged \u00ab {statut} \u00bb without a plan covering them. '
+      + 'The tool works in two steps: it first lists the tokens involved, which you '
+      + 'review, before anything is deleted.'
+  },
+
+  'confirm.campagne.titre': { fr: 'Campagne en cours', en: 'Harvest in progress' },
+  'confirm.campagne.corps': {
+    fr: 'Une campagne est déjà en cours et va se poursuivre. Consultez « Où en '
+      + 'sont les collectes ? », ou arrêtez-la avant d\'en lancer une autre.',
+    en: 'A harvest is already running and will continue. See \u00ab How are '
+      + 'collections going? \u00bb, or stop it before starting another.'
+  },
+  'confirm.moisson.titre': { fr: 'Moissonner le journal', en: 'Harvest the audit log' },
+  'confirm.moisson.remplace': {
+    fr: 'Le journal des {n} derniers jours va être relu, et le contenu actuel de '
+      + 'l\'onglet brut remplacé.\n\nContinuer ?',
+    en: 'The last {n} days of the audit log will be re-read, and the current '
+      + 'contents of the raw tab replaced.\n\nContinue?'
+  },
+  'confirm.moisson.neuf': {
+    fr: 'Le journal des {n} derniers jours va être lu et déposé dans ce '
+      + 'classeur.\n\nContinuer ?',
+    en: 'The last {n} days of the audit log will be read and written into this '
+      + 'workbook.\n\nContinue?'
+  },
+  'confirm.inventaire.titre': { fr: 'Relever les jetons actifs', en: 'Collect active tokens' },
+  'confirm.inventaire.corps': {
+    fr: 'Le relevé interroge l\'annuaire compte par compte : une requête par '
+      + 'compte, reprise automatiquement jusqu\'au bout.\n\nLe relevé précédent '
+      + 'sera remplacé — les mêler ferait passer pour actifs des jetons révoqués '
+      + 'depuis.\n\nContinuer ?',
+    en: 'The inventory queries the directory account by account: one request per '
+      + 'account, resumed automatically until it completes.\n\nThe previous '
+      + 'inventory will be replaced — merging them would make tokens revoked since '
+      + 'look active.\n\nContinue?'
+  },
+  'dialogue.fermer': { fr: 'Fermer', en: 'Close' },
+  'dialogue.annuler': { fr: 'Annuler', en: 'Cancel' },
+  'dialogue.confirmer': { fr: 'Confirmer', en: 'Confirm' },
+  'dialogue.rienNeSeraFait': {
+    fr: 'Fermer cette fenêtre n\'exécute rien.',
+    en: 'Closing this window does nothing.'
+  },
+  'dialogue.attention': { fr: 'Attention', en: 'Warning' },
+  'dialogue.erreur': { fr: 'Erreur', en: 'Error' },
+
+  'menu.assistant': { fr: 'Ouvrir l\'assistant', en: 'Open the assistant' },
+  'assistant.titre': { fr: 'Assistant', en: 'Assistant' },
+  'assistant.chargement': { fr: 'Lecture de l\'état du classeur…', en: 'Reading the workbook state…' },
+  'assistant.patienter': {
+    fr: 'Un instant : l\'assistant regarde ce qui est collecté et ce qui reste à faire.',
+    en: 'One moment: the assistant is checking what has been collected and what remains.'
+  },
+  'assistant.continuer': { fr: 'Continuer', en: 'Continue' },
+  'assistant.aJour': { fr: 'Rien à faire', en: 'Nothing to do' },
+  'assistant.avancement': { fr: 'Avancement', en: 'Progress' },
+  'assistant.journal': { fr: 'Journal d\'audit', en: 'Audit log' },
+  'assistant.profils': { fr: 'Profils de l\'annuaire', en: 'Directory profiles' },
+  'assistant.jetons': { fr: 'Jetons actifs', en: 'Active tokens' },
+  'assistant.aInstruire': { fr: 'À instruire', en: 'To review' },
+  'assistant.aClasser': { fr: '{n} application(s) à classer', en: '{n} application(s) to classify' },
+  'assistant.toutClasse': { fr: 'Tout est classé', en: 'Everything is classified' },
+  'assistant.actualiser': { fr: 'Actualiser l\'état', en: 'Refresh' },
+  'assistant.pasDeSondage': {
+    fr: 'L\'état n\'est relu que sur demande : interroger le classeur en boucle '
+      + 'coûterait du quota pour rien.',
+    en: 'The state is re-read on demand only: polling the workbook would burn quota '
+      + 'for nothing.'
+  },
+
 
   'acces.drive': { fr: 'vos fichiers Drive', en: 'your Drive files' },
   'acces.gmail': { fr: 'votre messagerie', en: 'your mailbox' },

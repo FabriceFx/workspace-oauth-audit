@@ -46,8 +46,12 @@ const COLONNES_REVOCATIONS_ = [
   'decidePar', 'motifDecision', 'etat', 'prepareLe', 'appliqueLe', 'resultat'
 ];
 
-/** Statut du référentiel qui, seul, autorise une révocation. */
-const STATUT_REVOCABLE_ = 'à bloquer';
+/**
+ * Statut du référentiel qui, seul, autorise une révocation. C'est un
+ * IDENTIFIANT, pas un libellé : la valeur écrite dans le classeur dépend de la
+ * langue dans laquelle il a été classé, et estStatut_ les reconnaît toutes.
+ */
+const STATUT_REVOCABLE_ = 'aBloquer';
 
 /** Cran d'arrêt : au-delà, le plan doit être réduit avant d'être appliqué. */
 const PLAFOND_REVOCATION_ = 200;
@@ -78,7 +82,7 @@ function preparerRevocations() {
   for (const j of jetons.values()) {
     const d = decisions.get(j.cid);
     if (!d || !d.statut) { ecartesSansDecision++; continue; }
-    if (d.statut !== STATUT_REVOCABLE_) continue;
+    if (!estStatut_(d.statut, STATUT_REVOCABLE_)) continue;
     if (!d.enVigueur) { ecartesPerimees++; continue; }
     lignes.push([
       j.compte, domaine_(j.compte), libelleProfil_(profils.get(j.compte)),
@@ -94,15 +98,15 @@ function preparerRevocations() {
 
   const apps = new Set(lignes.map((l) => l[4]));
   dire_(`Plan préparé : ${lignes.length} jeton(s) à révoquer, `
-    + `sur ${apps.size} application(s) jugée(s) « ${STATUT_REVOCABLE_} ».`);
+    + `sur ${apps.size} application(s) jugée(s) « ${nomStatut_(STATUT_REVOCABLE_, langueInterface_())} ».`);
   dire_('');
   if (!lignes.length) {
-    dire_(`Aucune application ne porte le statut « ${STATUT_REVOCABLE_} » avec une`);
+    dire_(`Aucune application ne porte le statut « ${nomStatut_(STATUT_REVOCABLE_, langueInterface_())} » avec une`);
     dire_('décision en vigueur. C\'est le référentiel qui commande : classez');
     dire_('d\'abord dans l\'onglet Décisions, le plan suivra.');
   }
   if (ecartesPerimees) {
-    dire_(`${ecartesPerimees} jeton(s) écartés : décision « ${STATUT_REVOCABLE_} » périmée.`);
+    dire_(`${ecartesPerimees} jeton(s) écartés : décision « ${nomStatut_(STATUT_REVOCABLE_, langueInterface_())} » périmée.`);
     dire_('Une décision dont l\'échéance est passée ne commande plus rien —');
     dire_('reconduisez-la si elle tient toujours.');
     dire_('');
@@ -121,7 +125,8 @@ function preparerRevocations() {
 
 // -------------------------------------------------------------- l'application
 
-function appliquerRevocations() {
+function appliquerRevocations(options = {}) {
+  const { forcer = false } = options;
   const classeur = classeurCourant_();
   const f = chercherOnglet_(classeur, 'revocations');
   if (!f || f.getLastRow() < 2) {
@@ -172,17 +177,16 @@ function appliquerRevocations() {
   const decisions = lireDecisions_(classeur);
   const perimes = cibles.filter((c) => {
     const d = decisions.get(c.cid);
-    return !d || d.statut !== STATUT_REVOCABLE_ || !d.enVigueur;
+    return !d || !estStatut_(d.statut, STATUT_REVOCABLE_) || !d.enVigueur;
   });
   const retenus = cibles.filter((c) => perimes.indexOf(c) < 0);
 
-  const ui = SpreadsheetApp.getUi();
   const moi = Session.getEffectiveUser().getEmail();
   const surMoi = retenus.filter((c) => c.compte === moi);
 
   if (!retenus.length) {
     dire_(`Les ${perimes.length} ligne(s) du plan ne sont plus commandées par une`);
-    dire_(`décision « ${STATUT_REVOCABLE_} » en vigueur : le référentiel a changé`);
+    dire_(`décision « ${nomStatut_(STATUT_REVOCABLE_, langueInterface_())} » en vigueur : le référentiel a changé`);
     dire_('depuis la préparation. Rien n\'est appliqué — repréparez le plan.');
     vider_('Plan périmé');
     return;
@@ -196,24 +200,19 @@ function appliquerRevocations() {
     + 'Cette suppression est immédiate et ne s\'annule pas.\n\n'
     + 'Rappel : révoquer n\'est pas bloquer. L\'utilisateur pourra réautoriser '
     + 'l\'application tant qu\'elle ne sera pas bloquée en console.\n\nAppliquer ?';
-  if (ui.alert('Appliquer les révocations', question, ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) {
-    dire_('Application annulée. Rien n\'a été révoqué.');
-    vider_('Annulé');
-    return;
-  }
 
-  // Se retirer à soi-même le jeton de l'outil, c'est s'enfermer dehors.
-  if (surMoi.length) {
-    const second = ui.alert('Un de ces jetons est le vôtre',
-      `${surMoi.length} ligne(s) portent sur votre propre compte (${moi}).\n\n`
-      + 'Si l\'une d\'elles concerne l\'application qui fait tourner cet outil, '
-      + 'vous perdrez l\'accès et devrez réautoriser depuis l\'éditeur.\n\n'
-      + 'Continuer quand même ?', ui.ButtonSet.OK_CANCEL);
-    if (second !== ui.Button.OK) {
-      dire_('Application annulée. Rien n\'a été révoqué.');
-      vider_('Annulé');
-      return;
-    }
+  if (!forcer) {
+    // Se retirer à soi-même le jeton de l'outil, c'est s'enfermer dehors.
+    // L'avertissement occupe son propre bloc, en tête et en rouge : noyé à la
+    // suite d'un texte long, il se lit après coup — c'est-à-dire jamais.
+    const avertissement = surMoi.length
+      ? `${surMoi.length} ligne(s) portent sur votre propre compte (${moi}). `
+        + 'Si l\'une d\'elles concerne l\'application qui fait tourner cet outil, '
+        + 'vous perdrez l\'accès et devrez réautoriser depuis l\'éditeur.'
+      : '';
+    confirmer_('Appliquer les révocations', question, 'appliquerRevocations',
+      avertissement);
+    return;
   }
 
   const aujourdhui = jour_(new Date());

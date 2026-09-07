@@ -75,11 +75,18 @@ reste échouera aussi — autant le savoir en trente secondes.
 
 ## Le déroulé
 
-> **Si vous ne savez plus où vous en êtes**, la première entrée du menu vous le
-> dit. Elle nomme la prochaine chose à faire — « Relever les jetons actifs »,
-> « Classer : 12 applications sans décision », « Terminer : 7 courriels à
-> envoyer » — explique pourquoi, et la lance après confirmation. Le déroulé
-> ci-dessous est là pour reprendre la main, pas pour être mémorisé.
+> **Si vous ne savez plus où vous en êtes**, ouvrez l'assistant : menu
+> **Applications tierces > Ouvrir l'assistant**. Le panneau s'installe à droite
+> et y reste. Il nomme la prochaine chose à faire — « Relever les jetons
+> actifs », « Classer : 12 applications sans décision », « Terminer : 7
+> courriels à envoyer » —, explique pourquoi, et la lance après confirmation. Il
+> montre aussi, d'un coup d'œil, ce qui est collecté et ce qui ne l'est pas.
+>
+> Il ne se rafraîchit pas tout seul : l'état ne change que lorsque vous agissez.
+> Après une action il se remet à jour ; sinon, le lien « Actualiser l'état » est
+> en bas du panneau.
+>
+> Le déroulé ci-dessous est là pour reprendre la main, pas pour être mémorisé.
 
 
 ### 1. Moissonner le journal

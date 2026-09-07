@@ -29,9 +29,13 @@ const GUIDE_ = [
   ]],
 
   ['Le déroulé, une fois pour toutes', [
-    'Si vous ne savez plus où vous en êtes, la PREMIÈRE ENTRÉE DU MENU vous le '
-    + 'dit : elle nomme la prochaine chose à faire, l\'explique, et la lance. Le '
-    + 'reste de ce chapitre est là pour quand vous voulez reprendre la main.',
+    'Si vous ne savez plus où vous en êtes, ouvrez L\'ASSISTANT — première entrée '
+    + 'du menu. Le panneau s\'installe à droite et y reste : il nomme la prochaine '
+    + 'chose à faire, dit pourquoi, la lance après confirmation, et montre ce qui '
+    + 'est collecté et ce qui ne l\'est pas. Il ne se rafraîchit pas tout seul — '
+    + 'l\'état ne change que lorsque vous agissez ; le lien « Actualiser l\'état » '
+    + 'est en bas du panneau.',
+    'Le reste de ce chapitre est là pour quand vous voulez reprendre la main.',
     '1. « Moissonner le journal — 180 jours » : lit le journal d\'audit OAuth du '
     + 'tenant et remplit les onglets. C\'est le point de départ, et il est peu coûteux.',
     '2. « Relever les profils des comptes » : va chercher dans l\'annuaire qui est '

@@ -96,6 +96,7 @@ const lirePage_ = (etat) => AdminReports.Activities.list('all', 'token', {
 function moissonner(jours) {
   const t0 = Date.now();
   let etat = lireEtat_();
+  const campagneNeuve = !etat;
 
   if (etat && jours && jours !== etat.jours) {
     dire_(`Une campagne sur ${etat.jours} jours est déjà en cours ; elle se`);
@@ -113,7 +114,16 @@ function moissonner(jours) {
   }
 
   const classeur = classeurCourant_();
-  const brut = brutCourant_(classeur);
+  const langue = reglages_(classeur).interface;
+  const brut = brutCourant_(classeur, langue);
+
+  // Le brut se vide ICI, et nulle part ailleurs : l'écriture se fait en ajout à
+  // partir de getLastRow(), donc une campagne neuve qui n'aurait pas vidé
+  // empilerait sa fenêtre sur la précédente. Le rapport resterait plausible et
+  // serait faux — volumes doublés, première apparition avancée. Une reprise, à
+  // l'inverse, ne doit surtout PAS vider : elle continue la même campagne.
+  if (campagneNeuve) entetesBrut_(brut.clear(), langue);
+
   let fini = false;
 
   try {

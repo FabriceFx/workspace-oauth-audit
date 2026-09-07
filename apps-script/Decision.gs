@@ -19,7 +19,6 @@
  * définitive, ce qui n'existe pas en gouvernance des accès.
  */
 
-const ONGLET_DECISIONS_ = 'Décisions';
 
 const COLONNES_DECISIONS_ = [
   'clientId', 'application', 'statut', 'motif', 'decidePar', 'le',
@@ -37,11 +36,17 @@ const COLONNES_DECISIONS_ = [
  *
  * Un statut vide vaut « non classée » : c'est l'état de départ, et c'est celui
  * qu'il faut faire décroître.
+ *
+ * Le vocabulaire lui-même vit dans STATUTS_LANGUE_ (Langues.gs) : la liste
+ * déroulante s'écrit dans la langue de l'interface, mais un statut lu se
+ * reconnaît dans les deux — un classeur classé en français ne perd pas ses
+ * décisions en basculant en anglais. D'où : jamais de comparaison de chaîne sur
+ * un statut, toujours estStatut_.
  */
-const STATUTS_ = ['approuvée', 'tolérée', 'à instruire', 'à bloquer', 'bloquée'];
+const STATUTS_ = ORDRE_STATUTS_;
 
 /** Statuts qui dispensent d'écrire aux autorisants. */
-const STATUTS_SILENCIEUX_ = new Set(['approuvée', 'tolérée']);
+const STATUTS_SILENCIEUX_ = ['approuvee', 'toleree'];
 
 /**
  * L'onglet des décisions n'est jamais reconstruit — mais ses en-têtes peuvent
@@ -63,11 +68,11 @@ const feuilleDecisions_ = (classeur, lg) => {
 };
 
 /** Menu déroulant sur la colonne Statut : on ne classe pas en orthographe libre. */
-const poserValidationStatut_ = (f) => {
+const poserValidationStatut_ = (f, lg) => {
   if (typeof SpreadsheetApp.newDataValidation !== 'function') return;
   const lignes = Math.max(1, f.getMaxRows() - 1);
   const regle = SpreadsheetApp.newDataValidation()
-    .requireValueInList(STATUTS_, true)
+    .requireValueInList(statutsEn_(lg || LANGUE_DEFAUT_), true)
     .setAllowInvalid(false)
     .build();
   f.getRange(2, COLONNES_DECISIONS_.indexOf('statut') + 1, lignes, 1)
@@ -116,7 +121,9 @@ const lireDecisions_ = (classeur) => {
 const decisionsSilencieuses_ = (classeur) => {
   const silencieuses = new Set();
   for (const d of lireDecisions_(classeur).values()) {
-    if (d.enVigueur && STATUTS_SILENCIEUX_.has(d.statut)) silencieuses.add(d.cid.toLowerCase());
+    if (d.enVigueur && STATUTS_SILENCIEUX_.some((id) => estStatut_(d.statut, id))) {
+      silencieuses.add(d.cid.toLowerCase());
+    }
   }
   return silencieuses;
 };
@@ -173,7 +180,7 @@ const synchroniserDecisions_ = (classeur, apps, lg) => {
     f.getRange(f.getLastRow() + 1, 1, nouvelles.length, COLONNES_DECISIONS_.length)
       .setValues(nouvelles);
   }
-  poserValidationStatut_(f);
+  poserValidationStatut_(f, lg);
   f.autoResizeColumns(1, COLONNES_DECISIONS_.length);
   return { nouvelles: nouvelles.length, connues: lignesExistantes.size };
 };

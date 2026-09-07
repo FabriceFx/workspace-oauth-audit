@@ -272,7 +272,9 @@ function preparerSollicitations() {
   dire_('');
   dire_(`Le texte du courriel et les règles de nommage se modifient dans l'onglet `
     + `${ONGLET_MODELE_}. Pour cesser de solliciter une application, jugez-la`);
-  dire_(`« approuvée » ou « tolérée » dans l'onglet ${ONGLET_DECISIONS_}.`);
+  dire_(`« ${nomStatut_('approuvee', langueInterface_())} » ou `
+    + `« ${nomStatut_('toleree', langueInterface_())} » dans l'onglet `
+    + `${nomOnglet_('decisions', langueInterface_())}.`);
   dire_('Commencez par vous envoyer un exemplaire à vous-même : « Envoyer un exemple ».');
   vider_('Plan de sollicitation');
 }
@@ -416,7 +418,8 @@ function envoyerSollicitationExemple() {
   vider_('Exemple envoyé');
 }
 
-function envoyerSollicitations() {
+function envoyerSollicitations(options = {}) {
+  const { forcer = false } = options;
   const classeur = classeurCourant_();
   const f = chercherOnglet_(classeur, 'sollicitations');
   if (!f || f.getLastRow() < 2) {
@@ -476,16 +479,15 @@ function envoyerSollicitations() {
     return;
   }
 
-  const ui = SpreadsheetApp.getUi();
   const question = `${aEnvoyer.length} compte(s) sont à l'état « à envoyer ».\n\n`
     + `${possible} courriel(s) vont partir maintenant`
     + (possible < aEnvoyer.length
       ? `, le reste demain (quota du jour : ${quota}).` : '.')
     + '\n\nCes courriels partent à de vraies personnes et ne peuvent pas être '
     + 'rappelés.\n\nEnvoyer ?';
-  if (ui.alert('Envoyer les sollicitations', question, ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) {
-    dire_('Envoi annulé. Rien n\'est parti.');
-    vider_('Annulé');
+  
+  if (!forcer) {
+    confirmer_('Envoyer les sollicitations', question, 'envoyerSollicitations');
     return;
   }
 

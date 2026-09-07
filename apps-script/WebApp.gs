@@ -94,25 +94,38 @@ const syntheseLue_ = (classeur) => {
 
 const STYLE_ = `
   :root { color-scheme: light }
-  body { font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; color:#202124;
-         margin:0; background:#f8f9fa }
-  main { max-width:980px; margin:0 auto; padding:28px 20px 60px }
-  h1 { font-size:22px; margin:0 0 4px }
-  h2 { font-size:16px; margin:28px 0 10px }
-  .carte { background:#fff; border:1px solid #dadce0; border-radius:8px; padding:18px 20px }
-  .avert { background:#fef7e0; border:1px solid #f9e3a2; border-radius:8px;
-           padding:12px 16px; margin:16px 0; font-size:13px }
-  table { border-collapse:collapse; width:100% }
-  th { text-align:left; font-weight:600; color:#5f6368; font-size:12px;
-       border-bottom:1px solid #dadce0; padding:6px 10px 6px 0 }
-  td { padding:6px 10px 6px 0; border-bottom:1px solid #f1f3f4; vertical-align:top }
-  .sect { font-weight:600; padding-top:14px }
-  .prio { font-variant-numeric:tabular-nums; font-weight:600 }
-  .r { color:#c5221f } .s { color:#b06000 } .b { color:#5f6368 }
-  .note { color:#5f6368; font-size:12px }
-  a { color:#1a73e8 }
-  footer { color:#5f6368; font-size:12px; margin-top:34px; border-top:1px solid #dadce0;
-           padding-top:12px }
+  body { font-family: 'Outfit', 'Google Sans', sans-serif; color: #1f1f1f; margin: 0; background-color: #e8ecf1; background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,0.03) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,0.04) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(339,49%,30%,0.04) 0, transparent 50%); background-attachment: fixed; min-height: 100vh; }
+  main { max-width: 1024px; margin: 0 auto; padding: 48px 24px 80px; animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  h1 { font-size: 34px; margin: 0 0 8px; font-weight: 600; letter-spacing: -0.02em; color: #1a1a1a; }
+  h2 { font-size: 20px; margin: 48px 0 20px; font-weight: 600; letter-spacing: -0.01em; color: #1a1a1a; display: flex; align-items: center; }
+  .carte { background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.8); border-radius: 20px; padding: 28px 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.04); }
+  .avert { background: rgba(254, 247, 224, 0.85); backdrop-filter: blur(8px); border: 1px solid rgba(249, 227, 162, 0.6); border-radius: 16px; padding: 20px 24px; margin: 32px 0; font-size: 14.5px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); line-height: 1.6; color: #4a3e00; }
+  
+  .synthese-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .synthese-section { grid-column: 1 / -1; font-size: 16.5px; font-weight: 600; color: #1a1a1a; margin-top: 16px; border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 8px; }
+  .synthese-item { background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.9); padding: 14px 18px; border-radius: 14px; transition: transform 0.2s, box-shadow 0.2s; }
+  .synthese-item:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.05); }
+  .synthese-cle { font-size: 13px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .synthese-val { font-size: 18px; font-weight: 500; color: #1f1f1f; }
+  
+  .app-list { display: grid; gap: 12px; }
+  .app-card { display: flex; align-items: center; background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.9); border-radius: 14px; padding: 14px 20px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; text-decoration: none; color: inherit; }
+  .app-card:hover { transform: translateY(-2px) scale(1.005); background: rgba(255,255,255,0.9); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+  .app-prio { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 17px; color: #5f6368; min-width: 48px; }
+  .app-main { flex: 1; min-width: 0; padding-right: 16px; }
+  .app-nom { font-size: 16.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1a73e8; margin-bottom: 4px; }
+  .app-meta { font-size: 13.5px; color: #5f6368; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; }
+  .app-badges { display: flex; gap: 8px; align-items: center; }
+  .badge { font-size: 11.5px; padding: 4px 12px; border-radius: 100px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
+  .badge-r { background: #fce8e6; color: #c5221f; }
+  .badge-s { background: #fef7e0; color: #b06000; }
+  .badge-b { background: #f1f3f4; color: #5f6368; }
+  
+  .note { color: #5f6368; font-size: 14px; line-height: 1.5; }
+  a { color: #1a73e8; text-decoration: none; transition: color 0.2s; }
+  a:hover { color: #174ea6; text-decoration: underline; }
+  footer { color: #5f6368; font-size: 13px; margin-top: 56px; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 24px; line-height: 1.6; }
 `;
 
 const enveloppe_ = (titre, corps, classeur, lg) => {
@@ -120,25 +133,34 @@ const enveloppe_ = (titre, corps, classeur, lg) => {
   const genere = (synthese.find((l) => l.cle === 'Généré le') || {}).valeur || '—';
   const lecteur = Session.getActiveUser().getEmail();
   return HtmlService.createHtmlOutput(`
-<style>${STYLE_}</style>
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Google+Sans:wght@400;500;600&family=Google+Sans+Mono&display=swap" rel="stylesheet">
+  <style>${STYLE_}</style>
+</head>
+<body>
 <main>
   <h1>${t_('vue.titre', lg)}</h1>
-  <div class="note">${t_('vue.sousTitre', lg)}</div>
+  <div class="note" style="font-size:15px">${t_('vue.sousTitre', lg)}</div>
   ${corps}
   <footer>
     ${t_('vue.produitesLe', lg)}
     <strong>${echapper_(datesLisiblesLangue_(genere, lg))}</strong>
     ${t_('vue.neRafraichitRien', lg)}<br>
-    ${lecteur ? `${t_('vue.vousConsultez', lg)} ${echapper_(lecteur)}.<br>` : ''}
+    ${lecteur ? `${t_('vue.vousConsultez', lg)} <strong>${echapper_(lecteur)}</strong>.<br>` : ''}
     ${t_('vue.pourAgir', lg)}<br>
     ${t_('vue.outilVersion', lg)} ${echapper_(VERSION_)}.
   </footer>
-</main>`)
+</main>
+</body>
+</html>`)
     .setTitle(titre)
     // L'énumération ne comporte que ALLOWALL et DEFAULT — il n'existe pas de
-    // DENY, et `HtmlService.XFrameOptionsMode.DENY` valait donc `undefined`.
-    // DEFAULT est déjà la valeur protectrice : elle pose l'en-tête
-    // X-Frame-Options normal. C'est ALLOWALL qu'il faut se garder d'écrire.
+    // DENY, et `HtmlService.XFrameOptionsMode.DENY` valait donc `undefined`,
+    // ce que l'appel rejette. DEFAULT est déjà la valeur protectrice : elle pose
+    // l'en-tête X-Frame-Options normal. C'est ALLOWALL qu'il faut se garder
+    // d'écrire. Ne pas « corriger » ceci en DENY.
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 };
 
@@ -147,10 +169,11 @@ const pageAccueil_ = (classeur) => {
   const synthese = syntheseLue_(classeur);
   const lignesSynthese = synthese
     .filter((l) => l.cle || l.valeur)
-    .map((l) => `<tr><td class="${l.section ? 'sect' : ''}">${echapper_(l.cle)}</td>
-      <td class="${l.section ? 'sect' : ''}">${
-        echapper_(datesLisiblesLangue_(l.valeur, lg))}</td></tr>`)
-    .join('');
+    .map((l) => {
+      if (!l.valeur && l.section) return `<div class="synthese-section">${echapper_(l.cle)}</div>`;
+      if (!l.valeur) return '';
+      return `<div class="synthese-item"><div class="synthese-cle">${echapper_(l.cle)}</div><div class="synthese-val">${echapper_(datesLisiblesLangue_(l.valeur, lg))}</div></div>`;
+    }).join('');
 
   const { entetes, lignes } = tableau_(classeur, 'aInstruire');
   const i = (nom) => entetes.indexOf(nom);
@@ -158,36 +181,38 @@ const pageAccueil_ = (classeur) => {
     const niveau = String(l[i('Niveau max')] || '');
     const classe = niveau === 'restreinte' ? 'r' : niveau === 'sensible' ? 's' : 'b';
     const cid = encodeURIComponent(String(l[i('client_id')] || ''));
-    return `<tr>
-      <td class="prio">${echapper_(l[i('Priorité')])}</td>
-      <td><a href="?app=${cid}">${echapper_(l[i('Application')])}</a></td>
-      <td class="${classe}">${echapper_(
-        TEXTES_[`niveau.${niveau}`] ? t_(`niveau.${niveau}`, lg) : niveau)}</td>
-      <td>${echapper_(l[i('Autorisants')])}</td>
-      <td class="note">${echapper_(l[i('Motifs')])}</td>
-    </tr>`;
+    const autorisants = String(l[i('Autorisants')] || '0');
+    const motifs = String(l[i('Motifs')] || '');
+    return `
+      <a href="?app=${cid}" class="app-card">
+        <div class="app-prio">${echapper_(l[i('Priorité')])}</div>
+        <div class="app-main">
+          <div class="app-nom">${echapper_(l[i('Application')])}</div>
+          <div class="app-meta">${echapper_(autorisants)} ${t_('vue.colonne.autorisants', lg).toLowerCase()}${motifs ? ` &bull; ${echapper_(motifs)}` : ''}</div>
+        </div>
+        <div class="app-badges">
+          <span class="badge badge-${classe}">${echapper_(TEXTES_[`niveau.${niveau}`] ? t_(`niveau.${niveau}`, lg) : niveau)}</span>
+        </div>
+      </a>`;
   }).join('');
 
   return enveloppe_(t_('vue.titre', lg), `
     <h2>${t_('vue.parc', lg)}</h2>
-    <div class="carte"><table>${lignesSynthese}</table></div>
+    <div class="carte" style="padding-bottom:32px">
+      <div class="synthese-grid">${lignesSynthese}</div>
+    </div>
 
     <h2>${t_('vue.aInstruire', lg)}</h2>
     <div class="carte">
-      ${file ? `<table>
-        <tr><th>${t_('vue.colonne.priorite', lg)}</th>
-        <th>${t_('vue.colonne.application', lg)}</th>
-        <th>${t_('vue.colonne.gravite', lg)}</th>
-        <th>${t_('vue.colonne.autorisants', lg)}</th>
-        <th>${t_('vue.colonne.pourquoi', lg)}</th></tr>${file}</table>
+      ${file ? `<div class="app-list">${file}</div>
         ${lignes.length > LIGNES_PUBLIEES_
-          ? `<div class="note" style="margin-top:10px">${t_('vue.premieres', lg,
+          ? `<div class="note" style="margin-top:20px;text-align:center;font-weight:500">${t_('vue.premieres', lg,
             { n: LIGNES_PUBLIEES_, total: lignes.length })}</div>` : ''}`
         : `<div class="note">${t_('vue.rienAInstruire', lg)}</div>`}
     </div>
 
     <div class="avert">
-      <strong>${t_('vue.avertPriorite.titre', lg)}</strong>
+      <strong style="display:block;margin-bottom:8px;font-size:15.5px">${t_('vue.avertPriorite.titre', lg)}</strong>
       ${t_('vue.avertPriorite.corps', lg)}
     </div>`, classeur, lg);
 };
@@ -196,11 +221,12 @@ const pageFiche_ = (classeur, cid) => {
   const lg = reglages_(classeur).interface;
   const d = dossier_(classeur, cid);
   // Sans la liste des comptes : un comité statue sur une application, pas sur
-  // des personnes nommées.
+  // des personnes nommées. Le classeur, lui, les nomme — c'est là qu'on agit.
   return enveloppe_(`${d.nom}`, `
-    <h2><a href="?">${t_('vue.retour', lg)}</a></h2>
-    <div class="carte">${ficheHtml_(d,
-      { avecComptes: false, avecImpression: false, langue: lg })}</div>`,
+    <h2 style="margin-top:0"><a href="?">&larr; ${t_('vue.retour', lg)}</a></h2>
+    <div class="carte" style="padding:0;overflow:hidden;background:rgba(255,255,255,0.7);border:none;box-shadow:none">
+      ${ficheHtml_(d, { avecComptes: false, avecImpression: false, langue: lg })}
+    </div>`,
   classeur, lg);
 };
 

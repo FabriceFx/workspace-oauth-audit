@@ -30,50 +30,54 @@
 
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  const menu = ui.createMenu('Applications tierces');
 
-  // Le diagnostic lit le classeur ; s'il échoue pour une raison quelconque, le
-  // menu doit tout de même apparaître. Un outil sans menu est un outil perdu.
-  let entete = 'Par où commencer ?';
+  // Le menu doit apparaître quoi qu'il arrive : un outil sans menu est un outil
+  // perdu. La langue se lit dans l'onglet Paramètres, qui peut manquer — on
+  // retombe alors sur le français plutôt que d'échouer sans rien afficher.
+  let lg = LANGUE_DEFAUT_;
   try {
-    entete = prochaineEtape_(etatDuTravail_(SpreadsheetApp.getActive())).libelle;
+    lg = reglages_(SpreadsheetApp.getActive()).interface;
   } catch (e) {
-    entete = 'Par où commencer ?';
+    lg = LANGUE_DEFAUT_;
   }
-  menu.addItem(`▶  ${entete}`, 'menuEtapeSuivante');
+  const T = (cle) => t_(cle, lg);
+
+  const menu = ui.createMenu(T('menu.titre'));
+
+  menu.addItem(`✨  ${T('menu.assistant')}`, 'menuOuvrirAssistant');
   menu.addSeparator();
 
-  menu.addSubMenu(ui.createMenu('Collecter les données')
-    .addItem('Moissonner le journal d\'audit — 180 jours', 'menuMoissonner180')
-    .addItem('Moissonner le journal d\'audit — 30 jours', 'menuMoissonner30')
-    .addItem('Relever les profils des comptes (annuaire)', 'menuRafraichirComptes')
-    .addItem('Relever les jetons actifs — long…', 'menuInventorier')
+  menu.addSubMenu(ui.createMenu(T('menu.collecter'))
+    .addItem(T('menu.moissonner180'), 'menuMoissonner180')
+    .addItem(T('menu.moissonner30'), 'menuMoissonner30')
+    .addItem(T('menu.profils'), 'menuRafraichirComptes')
+    .addItem(T('menu.jetons'), 'menuInventorier')
     .addSeparator()
-    .addItem('Recalculer le rapport, sans rien recollecter', 'menuReagreger')
+    .addItem(T('menu.recalculer'), 'menuReagreger')
     .addSeparator()
-    .addItem('Où en sont les collectes ?', 'menuOuEnEstOn')
-    .addItem('Arrêter les collectes en cours', 'menuArreter'));
+    .addItem(T('menu.ouEnEst'), 'menuOuEnEstOn')
+    .addItem(T('menu.arreter'), 'menuArreter'));
 
-  menu.addSubMenu(ui.createMenu('Écrire aux autorisants')
-    .addItem('1. Préparer le plan d\'envoi', 'menuPreparerSollicitations')
-    .addItem('2. M\'envoyer un exemple', 'menuSollicitationExemple')
-    .addItem('3. Envoyer pour de bon…', 'menuEnvoyerSollicitations'));
+  menu.addSubMenu(ui.createMenu(T('menu.ecrire'))
+    .addItem(T('menu.preparerEnvoi'), 'menuPreparerSollicitations')
+    .addItem(T('menu.exemple'), 'menuSollicitationExemple')
+    .addItem(T('menu.envoyer'), 'menuEnvoyerSollicitations'));
 
-  menu.addSubMenu(ui.createMenu('Révoquer des accès')
-    .addItem('1. Préparer le plan de révocation', 'menuPreparerRevocations')
-    .addItem('2. Appliquer le plan…', 'menuAppliquerRevocations'));
-
-  menu.addSeparator();
-  menu.addItem('Fiche de l\'application sélectionnée', 'menuFiche');
-  menu.addItem('Partager la vue de consultation', 'menuUrlConsultation');
-  menu.addSubMenu(ui.createMenu('Onglets techniques')
-    .addItem('Afficher l\'onglet brut', 'menuAfficherBrut')
-    .addItem('Masquer l\'onglet brut', 'menuMasquerBrut'));
+  menu.addSubMenu(ui.createMenu(T('menu.revoquer'))
+    .addItem(T('menu.preparerRevocation'), 'menuPreparerRevocations')
+    .addItem(T('menu.appliquer'), 'menuAppliquerRevocations'));
 
   menu.addSeparator();
-  menu.addItem('Guide complet', 'menuGuide');
-  menu.addItem('Aide — le déroulé en bref', 'menuAide');
-  menu.addItem('À propos', 'menuAPropos');
+  menu.addItem(T('menu.fiche'), 'menuFiche');
+  menu.addItem(T('menu.vue'), 'menuUrlConsultation');
+  menu.addSubMenu(ui.createMenu(T('menu.technique'))
+    .addItem(T('menu.afficherBrut'), 'menuAfficherBrut')
+    .addItem(T('menu.masquerBrut'), 'menuMasquerBrut'));
+
+  menu.addSeparator();
+  menu.addItem(T('menu.guide'), 'menuGuide');
+  menu.addItem(T('menu.aide'), 'menuAide');
+  menu.addItem(T('menu.aPropos'), 'menuAPropos');
   menu.addToUi();
 }
 
@@ -86,38 +90,70 @@ function onOpen() {
  * n'est lu dans l'état des campagnes. `onOpen` est un déclencheur simple, dont
  * les droits sont volontairement étroits — il doit pouvoir échouer sans priver
  * l'utilisateur de son menu.
+ *
+ * UNE SEULE LECTURE PAR ONGLET. Ce diagnostic tourne à chaque ouverture du
+ * classeur et à chaque rafraîchissement de l'assistant ; sur un parc de
+ * plusieurs milliers de comptes, relire deux fois le même onglet se paie en
+ * quota d'exécution pour rien.
  */
 const etatDuTravail_ = (classeur) => {
   const remplie = (id) => {
     const f = classeur && chercherOnglet_(classeur, id);
     return Boolean(f) && f.getLastRow() > 1;
   };
+  const lire = (id) => {
+    const f = classeur && chercherOnglet_(classeur, id);
+    if (!f || f.getLastRow() < 2) return { entetes: [], lignes: [] };
+    const v = f.getDataRange().getValues();
+    return { entetes: v[0], lignes: v.slice(1) };
+  };
   // Les états sont des données, pas des libellés : on les reconnaît dans toutes
   // les langues où ils ont pu être écrits.
-  const compter = (id, idColonne, valeurs) => {
-    const f = classeur && chercherOnglet_(classeur, id);
-    if (!f || f.getLastRow() < 2) return 0;
-    const v = f.getDataRange().getValues();
-    const i = colonne_(v[0], idColonne);
+  const compter = (t, idColonne, valeurs) => {
+    const i = colonne_(t.entetes, idColonne);
     if (i < 0) return 0;
-    return v.slice(1).filter((l) => valeurs.indexOf(String(l[i]).trim()) >= 0).length;
+    return t.lignes.filter((l) => valeurs.indexOf(String(l[i]).trim()) >= 0).length;
   };
-  const nonClassees = () => {
-    const f = classeur && chercherOnglet_(classeur, 'decisions');
-    if (!f || f.getLastRow() < 2) return 0;
-    const v = f.getDataRange().getValues();
-    const i = colonne_(v[0], 'statut');
-    return v.slice(1).filter((l) => l[0] && !String(l[i]).trim()).length;
+  const cles = (t, idColonne) => {
+    const i = colonne_(t.entetes, idColonne);
+    if (i < 0) return new Set();
+    return new Set(t.lignes
+      .map((l) => String(l[i] || '').trim().toLowerCase()).filter(Boolean));
   };
+
+  const decisions = lire('decisions');
+  const revocations = lire('revocations');
+  const sollicitations = lire('sollicitations');
+
+  const iStatut = colonne_(decisions.entetes, 'statut');
+  const iCid = colonne_(decisions.entetes, 'clientId');
+
+  const nonClassees = iStatut < 0 ? 0
+    : decisions.lignes.filter((l) => l[0] && !String(l[iStatut]).trim()).length;
+
+  /*
+   * Une décision « à bloquer » n'appelle un plan que tant qu'AUCUN plan ne la
+   * couvre. Sans cette condition, l'assistant boucle : le statut ne change pas
+   * tout seul quand le plan est appliqué, si bien qu'il reproposerait
+   * indéfiniment de préparer un plan déjà préparé et déjà exécuté. Le plan
+   * appliqué reste dans son onglet — c'est lui la trace, et c'est lui qui
+   * ferme la boucle. Vider l'onglet des révocations rouvre donc la proposition,
+   * ce qui est le comportement voulu : on redemande alors un plan à jour.
+   */
+  const planifies = cles(revocations, 'clientId');
+  const aBloquer = (iStatut < 0 || iCid < 0) ? 0
+    : decisions.lignes.filter((l) => estStatut_(l[iStatut], 'aBloquer')
+      && !planifies.has(String(l[iCid] || '').trim().toLowerCase())).length;
 
   return {
     journal: remplie('brut'),
     profils: remplie('comptes'),
     jetons: remplie('jetons'),
     aInstruire: remplie('aInstruire'),
-    nonClassees: nonClassees(),
-    envoisEnAttente: compter('sollicitations', 'etat', ETATS_A_ENVOYER_),
-    revocationsEnAttente: compter('revocations', 'etat', ETATS_A_REVOQUER_)
+    nonClassees,
+    aBloquer,
+    envoisEnAttente: compter(sollicitations, 'etat', ETATS_A_ENVOYER_),
+    revocationsEnAttente: compter(revocations, 'etat', ETATS_A_REVOQUER_)
   };
 };
 
@@ -127,64 +163,70 @@ const etatDuTravail_ = (classeur) => {
  * L'ordre traduit une règle simple : on finit ce qu'on a commencé avant
  * d'entreprendre autre chose. Un plan préparé puis laissé en plan est ce qui se
  * perd le plus facilement — rien ne le rappelle à personne.
+ *
+ * `actionName` désigne une entrée de ACTIONS_ (Commun.gs), et non une fonction :
+ * une fermeture ne traverse pas `google.script.run`. Le banc vérifie que chaque
+ * nom rendu ici existe bien dans la table — un nom mal orthographié ferait
+ * sinon un bouton qui ne fait rien, sans rien dire.
  */
-const prochaineEtape_ = (etat) => {
+const prochaineEtape_ = (etat, lg) => {
+  const langue = lg || LANGUE_DEFAUT_;
+  const T = (cle, valeurs) => t_(cle, langue, valeurs);
+
   if (!etat.journal) {
     return {
-      libelle: 'Commencer : moissonner le journal d\'audit',
-      pourquoi: 'Le classeur est vide. Le journal est la source la moins coûteuse, '
-        + 'et il donne à lui seul un rapport complet.',
-      action: () => moissonnerDepuisMenu_(180)
+      libelle: T('etape.commencer'),
+      pourquoi: T('etape.commencer.pourquoi'),
+      actionName: 'demanderMoisson180'
     };
   }
   if (etat.revocationsEnAttente) {
     return {
-      libelle: `Terminer : ${etat.revocationsEnAttente} révocation(s) préparée(s)`,
-      pourquoi: 'Un plan de révocation attend d\'être appliqué. Relisez-le, puis '
-        + 'appliquez-le — ou videz l\'onglet si vous avez changé d\'avis.',
-      action: () => ouvrir_('revocations')
+      libelle: T('etape.revocations', { n: etat.revocationsEnAttente }),
+      pourquoi: T('etape.revocations.pourquoi'),
+      actionName: 'ouvrirRevocations'
     };
   }
   if (etat.envoisEnAttente) {
     return {
-      libelle: `Terminer : ${etat.envoisEnAttente} courriel(s) à envoyer`,
-      pourquoi: 'Un plan de sollicitation attend. Relisez-le, envoyez-vous un '
-        + 'exemple, puis envoyez pour de bon.',
-      action: () => ouvrir_('sollicitations')
+      libelle: T('etape.envois', { n: etat.envoisEnAttente }),
+      pourquoi: T('etape.envois.pourquoi'),
+      actionName: 'ouvrirSollicitations'
+    };
+  }
+  if (etat.aBloquer) {
+    return {
+      libelle: T('etape.bloquer'),
+      pourquoi: T('etape.bloquer.pourquoi',
+        { n: etat.aBloquer, statut: nomStatut_('aBloquer', langue) }),
+      actionName: 'preparerRevocations'
     };
   }
   if (!etat.profils) {
     return {
-      libelle: 'Relever les profils des comptes',
-      pourquoi: 'Sans l\'annuaire, on ignore quels autorisants sont administrateurs '
-        + 'ou suspendus — et c\'est ce qui change la lecture du rapport. C\'est rapide.',
-      action: rafraichirComptes
+      libelle: T('etape.profils'),
+      pourquoi: T('etape.profils.pourquoi'),
+      actionName: 'menuRafraichirComptes'
     };
   }
   if (!etat.jetons) {
     return {
-      libelle: 'Relever les jetons actifs (c\'est long)',
-      pourquoi: 'Le journal ne remonte qu\'à 180 jours. Seul l\'inventaire montre '
-        + 'les accès accordés avant, que personne n\'a revus depuis. Une requête par '
-        + 'compte, avec reprise automatique.',
-      action: inventorierDepuisMenu_
+      libelle: T('etape.jetons'),
+      pourquoi: T('etape.jetons.pourquoi'),
+      actionName: 'demanderInventaire'
     };
   }
   if (etat.nonClassees) {
     return {
-      libelle: `Classer : ${etat.nonClassees} application(s) sans décision`,
-      pourquoi: 'Tout est collecté. Ouvrez « À instruire », déjà trié par priorité, '
-        + 'et inscrivez un statut dans l\'onglet Décisions — sans oublier l\'échéance '
-        + '« Revoir avant ».',
-      action: () => ouvrir_(etat.aInstruire ? 'aInstruire' : 'decisions')
+      libelle: T('etape.classer', { n: etat.nonClassees }),
+      pourquoi: T('etape.classer.pourquoi'),
+      actionName: etat.aInstruire ? 'ouvrirAInstruire' : 'ouvrirDecisions'
     };
   }
   return {
-    libelle: 'Tout est classé — relancer une collecte',
-    pourquoi: 'Rien n\'attend. Un nouveau moissonnage fera apparaître ce qui a '
-      + 'changé depuis, et les décisions arrivées à échéance reviendront d\'elles-mêmes '
-      + 'dans la file de travail.',
-    action: () => moissonnerDepuisMenu_(180)
+    libelle: T('etape.rien'),
+    pourquoi: T('etape.rien.pourquoi'),
+    actionName: 'demanderMoisson180'
   };
 };
 
@@ -195,17 +237,45 @@ const ouvrir_ = (id) => {
   return f;
 };
 
+function menuOuvrirAssistant() { afficherAssistant(); }
+
 /**
- * L'entrée de tête. Elle annonce ce qu'elle va faire et pourquoi avant de le
- * faire : un menu qui décide à votre place sans le dire serait pire que le menu
- * qu'il remplace.
+ * L'état courant, pour le script client du panneau latéral.
+ *
+ * Il porte AUSSI ses libellés : le panneau est une constante HTML, il ne peut
+ * pas appeler le dictionnaire lui-même. Tout ce qui s'affiche vient donc du
+ * serveur, dans la langue réglée — sans quoi la moitié du panneau resterait en
+ * français sur un classeur anglais.
  */
-function menuEtapeSuivante() {
-  const ui = SpreadsheetApp.getUi();
-  const etape = prochaineEtape_(etatDuTravail_(classeurCourant_()));
-  if (ui.alert(etape.libelle, `${etape.pourquoi}\n\nContinuer ?`,
-    ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) return;
-  etape.action();
+function etatPourAssistant_ui() {
+  const classeur = SpreadsheetApp.getActive();
+  if (!classeur) return null;
+  const lg = langueInterface_();
+  const etat = etatDuTravail_(classeur);
+  const etape = prochaineEtape_(etat, lg);
+  return {
+    etape: {
+      titre: etape.libelle,
+      pourquoi: etape.pourquoi,
+      actionName: etape.actionName
+    },
+    stats: {
+      journal: etat.journal,
+      profils: etat.profils,
+      jetons: etat.jetons,
+      nonClassees: etat.nonClassees,
+      envoisEnAttente: etat.envoisEnAttente,
+      revocationsEnAttente: etat.revocationsEnAttente,
+      aBloquer: etat.aBloquer
+    },
+    textes: {
+      continuer: t_('assistant.continuer', lg),
+      aJour: t_('assistant.aJour', lg),
+      aClasser: t_('assistant.aClasser', lg, { n: etat.nonClassees }),
+      toutClasse: t_('assistant.toutClasse', lg),
+      aInstruire: t_('assistant.aInstruire', lg)
+    }
+  };
 }
 
 /** Les deux collectes dans un seul dialogue, pas deux qui s'effacent. */
@@ -256,50 +326,39 @@ function menuMoissonner180() { moissonnerDepuisMenu_(180); }
 function menuMoissonner30() { moissonnerDepuisMenu_(30); }
 
 /**
- * Le moissonnage écrit dans l'onglet brut du classeur. Une campagne déjà en
- * cours se poursuit ; sinon on repart de zéro, et le brut est vidé — deux
- * fenêtres empilées dans un même onglet produiraient un rapport faux sans le
- * dire.
+ * Demande confirmation avant de moissonner. Le vidage de l'onglet brut n'est
+ * PAS fait ici : il appartient à moissonner(), qui seul sait distinguer une
+ * campagne neuve d'une reprise. Le poser ici l'aurait rendu dépendant du chemin
+ * emprunté — et l'assistant, qui ne passe pas par le menu, l'aurait sauté.
  */
 const moissonnerDepuisMenu_ = (jours) => {
   const ui = SpreadsheetApp.getUi();
-
+  const lg = langueInterface_();
   if (lireEtat_()) {
-    ui.alert('Campagne en cours',
-      'Une campagne est déjà en cours et va se poursuivre. Consultez « Où en sont '
-      + 'les collectes ? », ou arrêtez-la avant d\'en lancer une autre.',
+    ui.alert(t_('confirm.campagne.titre', lg), t_('confirm.campagne.corps', lg),
       ui.ButtonSet.OK);
     return;
   }
-  const classeur = classeurCourant_();
-  const brut = chercherOnglet_(classeur, 'brut');
+  const brut = chercherOnglet_(classeurCourant_(), 'brut');
   const remplacement = brut && brut.getLastRow() > 1;
-  const question = remplacement
-    ? `Le journal des ${jours} derniers jours va être relu, et le contenu actuel `
-      + 'de ce classeur remplacé.\n\nContinuer ?'
-    : `Le journal des ${jours} derniers jours va être lu et déposé dans ce `
-      + 'classeur.\n\nContinuer ?';
-  if (ui.alert('Moissonner le journal', question, ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) {
-    return;
-  }
-  if (brut) entetesBrut_(brut.showSheet().clear());
-
-  depuisMenu_('Moissonnage', () => moissonner(jours));
+  const question = t_(remplacement ? 'confirm.moisson.remplace' : 'confirm.moisson.neuf',
+    lg, { n: jours });
+  confirmer_(t_('confirm.moisson.titre', lg), question,
+    jours === 180 ? 'menuMoissonner180' : 'menuMoissonner30');
 };
 
 function menuInventorier() { inventorierDepuisMenu_(); }
 
 const inventorierDepuisMenu_ = () => {
-  const ui = SpreadsheetApp.getUi();
-  if (!lireEtatInventaire_()) {
-    const question = 'Le relevé interroge l\'annuaire compte par compte : une '
-      + 'requête par compte, reprise automatiquement jusqu\'au bout.\n\nLe relevé '
-      + 'précédent sera remplacé — les mêler ferait passer pour actifs des jetons '
-      + 'révoqués depuis.\n\nContinuer ?';
-    if (ui.alert('Relever les jetons actifs', question,
-      ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) return;
+  // Un relevé déjà entamé se poursuit sans rien demander : c'est une reprise,
+  // elle n'écrase rien.
+  if (lireEtatInventaire_()) {
+    depuisMenu_('Inventaire', inventorierJetons);
+    return;
   }
-  depuisMenu_('Inventaire', inventorierJetons);
+  const lg = langueInterface_();
+  confirmer_(t_('confirm.inventaire.titre', lg),
+    t_('confirm.inventaire.corps', lg), 'menuInventorier');
 };
 
 function menuReagreger() { depuisMenu_('Rapport', reagreger); }
@@ -322,7 +381,8 @@ function menuAfficherBrut() {
   const f = chercherOnglet_(classeur, 'brut');
   if (!f) {
     SpreadsheetApp.getUi().alert('Onglet brut absent',
-      `Ce classeur ne contient pas d'onglet ${ONGLET_BRUT_} : le journal n'a pas `
+      `Ce classeur ne contient pas d'onglet ${nomOnglet_('brut', langueInterface_())} : `
+      + 'le journal n\'a pas '
       + 'encore été moissonné.', SpreadsheetApp.getUi().ButtonSet.OK);
     return;
   }

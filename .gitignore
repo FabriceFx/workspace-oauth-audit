@@ -3,3 +3,6 @@
 .clasprc.json
 
 .DS_Store
+
+# Sorties de banc
+out.txt
