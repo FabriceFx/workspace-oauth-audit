@@ -72,7 +72,9 @@ function onOpen() {
   menu.addItem(T('menu.vue'), 'menuUrlConsultation');
   menu.addSubMenu(ui.createMenu(T('menu.technique'))
     .addItem(T('menu.afficherBrut'), 'menuAfficherBrut')
-    .addItem(T('menu.masquerBrut'), 'menuMasquerBrut'));
+    .addItem(T('menu.masquerBrut'), 'menuMasquerBrut')
+    .addSeparator()
+    .addItem(T('menu.resserrer'), 'menuResserrerBrut'));
 
   menu.addSeparator();
   menu.addItem(T('menu.guide'), 'menuGuide');
@@ -388,6 +390,30 @@ function menuAfficherBrut() {
   }
   classeur.setActiveSheet(f.showSheet());
 }
+
+function menuResserrerBrut() { resserrerDepuisMenu_(); }
+
+/**
+ * Le resserrage supprime des lignes du classeur pour de bon. Il annonce donc
+ * combien, et à partir de quand, avant de rien faire — et une opération déjà
+ * entamée se poursuit sans redemander.
+ */
+const resserrerDepuisMenu_ = () => {
+  if (lireEtatResserrage_()) {
+    depuisMenu_('Resserrage', () => resserrerBrut());
+    return;
+  }
+  const brut = chercherOnglet_(classeurCourant_(), 'brut');
+  if (!brut || brut.getLastRow() < 2) {
+    depuisMenu_('Resserrage', () => resserrerBrut());
+    return;
+  }
+  const lg = langueInterface_();
+  confirmer_(t_('confirm.resserrer.titre', lg),
+    t_('confirm.resserrer.corps', lg,
+      { lignes: brut.getLastRow() - 1, seuil: dateLisibleLangue_(jour_(ilYaJours_(30)), lg) }),
+    'menuResserrerBrut30');
+};
 
 function menuMasquerBrut() {
   const f = chercherOnglet_(classeurCourant_(), 'brut');

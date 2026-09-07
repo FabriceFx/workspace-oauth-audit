@@ -28,6 +28,24 @@ const GUIDE_ = [
     + 'et il écrit aux personnes concernées quand vous le lui demandez.'
   ]],
 
+  ['Quand une colonne est vide, elle ne dit pas « rien »', [
+    'Une colonne vide de ce classeur veut dire NON MESURÉ. Jamais « rien trouvé ». '
+    + 'C\'est la règle la plus importante à retenir pour lire le rapport sans se '
+    + 'tromper, et elle a deux conséquences concrètes.',
+    'La colonne « État du jeton » de l\'onglet Autorisants reste vide tant que '
+    + 'l\'inventaire n\'a pas tourné : on ignore alors ce qui existe encore.',
+    'Elle reste vide AUSSI, même après l\'inventaire, pour les comptes que '
+    + 'l\'annuaire a refusé de rendre. Sur plusieurs milliers de comptes, quelques '
+    + 'échecs sont inévitables ; ils sont repassés une fois, et ceux qui résistent '
+    + 'sont nommés dans l\'onglet _Échecs avec le motif du refus. Leur ligne reste '
+    + 'vide au lieu d\'afficher « clos » : un accès qu\'on n\'a pas su lire ne doit '
+    + 'pas se donner pour un accès fermé.',
+    'La synthèse porte le compte de ces comptes non mesurés, même quand il vaut '
+    + 'zéro — c\'est ainsi qu\'on sait que la mesure a été complète.',
+    'Ces comptes sont hors du champ des révocations : on ne révoque que ce qu\'on '
+    + 'a constaté. Relancer l\'inventaire les rattrape.'
+  ]],
+
   ['Le déroulé, une fois pour toutes', [
     'Si vous ne savez plus où vous en êtes, ouvrez L\'ASSISTANT — première entrée '
     + 'du menu. Le panneau s\'installe à droite et y reste : il nomme la prochaine '

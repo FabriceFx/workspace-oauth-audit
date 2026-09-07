@@ -7,6 +7,25 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.6.0] - 2026-09-07
+
+> **Le constat qui dérange :** *Une tâche qui se relance toute seule doit savoir constater qu'elle n'avance plus.*
+> Trois défauts que seul un grand parc révèle, et qu'aucun ne se signale : une reprise automatique qui boucle sur une erreur permanente, un compte que l'annuaire refuse et qui se lit ensuite comme un compte sans jeton, une agrégation qui échoue au bout de quatre minutes et demie en conseillant de la relancer — pour échouer identiquement. Aucun ne se voit sur un tenant d'atelier.
+
+### Corrigé
+- **Garde-fou sur les reprises automatiques.** Le moissonnage et l'inventaire se reprogrammaient à la minute suivante sur *n'importe quelle* erreur, sans plafond. Une cause permanente — droits retirés, quota d'API épuisé, plafond de 10 millions de cellules atteint — produisait 1 440 exécutions par jour, consommait les six heures de temps d'exécution quotidien, et ne prévenait personne. Chaque campagne porte désormais une empreinte de son avancement : trois reprises consécutives sans le moindre progrès, elle s'arrête, retire son déclencheur et énumère les causes par ordre de vraisemblance.
+- **Un compte que l'inventaire n'a pas su lire n'est plus compté comme un compte sans jeton.** Sur 8 500 appels, quelques échecs transitoires sont certains ; ils étaient comptés, jamais nommés, et le compte disparaissait du relevé — où son absence se lit exactement comme « aucun jeton ». C'est la règle que tout le reste de l'outil applique qui sautait : une colonne vide veut dire « non mesuré », jamais « rien trouvé ». Désormais les comptes en échec sont **nommés dans un onglet `_Échecs`** avec le motif du refus, **repassés une fois** en fin de parcours — ce qui efface la quasi-totalité des 429 et 503 —, et ceux qui résistent laissent leur colonne « État du jeton » **vide** au lieu d'afficher « clos ». La synthèse porte la ligne « comptes NON MESURÉS », y compris quand elle vaut zéro : un chiffre nul atteste que la mesure a été complète, une ligne absente ne dit rien.
+
+### Ajouté
+- **`resserrerBrut(jours)`, et l'entrée de menu « Resserrer l'onglet brut »** — la sortie d'une impasse. L'agrégation ne se reprend pas : elle accumule en mémoire une entrée par application, par couple et par portée, et ces tables ne tiennent ni dans les 9 Ko de `PropertiesService` ni dans une sérialisation qui coûterait plus cher que le calcul. Quand le brut est trop gros, elle ne passera donc jamais, et l'ancien message conseillait de relancer — ce qui repartait de la première ligne pour échouer au même endroit. Le resserrage réduit le journal déjà collecté **sans le redemander à Google** : bloc par bloc, sans aucun accumulateur, donc reprenable. Il écrit dans un onglet de travail et ne remplace l'original qu'à la toute fin — une interruption laisse le brut intact, jamais à moitié tronqué.
+- **Projection de l'agrégation sur le premier lot.** Elle annonce en quelques secondes « 1 240 000 lignes, environ 9 min nécessaires pour un budget de 4,5 min » et nomme la commande de sortie, au lieu de dépenser quatre minutes et demie pour dire la même chose.
+
+### Non fait, et pourquoi
+- **L'agrégation reste non reprenable.** La rendre reprenable demanderait de porter ses accumulateurs hors mémoire entre deux exécutions — une réduction externe en deux passes, dont le coût de sérialisation dépasserait vraisemblablement celui du calcul. Le resserrage traite le cas réel pour un dixième du travail ; si un jour il ne suffit plus, c'est cette refonte qu'il faudra faire, et non l'élargir.
+- **Aucune limitation de débit sur `Tokens.list`.** Le parcours est séquentiel, donc très en dessous des 2 400 requêtes/minute de l'annuaire. Les échecs transitoires sont traités en aval — nommés et repassés — plutôt qu'évités en amont : c'est plus simple, et c'est vérifiable.
+
+---
+
 ## [1.5.0] - 2026-09-07
 
 > **Le constat qui dérange :** *Une confirmation qui referme le compte rendu ne confirme rien du tout.*

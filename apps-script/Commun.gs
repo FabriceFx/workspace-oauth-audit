@@ -21,7 +21,7 @@
  * pire que pas de version du tout, puisqu'un déploiement Apps Script sert une
  * copie figée du code et qu'on ne peut pas deviner laquelle tourne.
  */
-const VERSION_ = '1.5.0';
+const VERSION_ = '1.6.0';
 
 /**
  * Marge de sécurité sous le plafond d'exécution, en millisecondes.
@@ -35,6 +35,19 @@ const VERSION_ = '1.5.0';
  * changement.
  */
 const BUDGET_MS = 4.5 * 60 * 1000;
+
+/**
+ * Reprises consécutives sans le moindre progrès avant abandon.
+ *
+ * Une tâche longue se reprogramme d'elle-même à la minute suivante quand elle
+ * est interrompue. Sur une erreur PERMANENTE — droits retirés, quota d'API
+ * épuisé, plafond de cellules du classeur atteint — cette reprise échoue
+ * exactement pareil, et recommence : 1 440 exécutions par jour, la réserve de
+ * six heures consommée, et rien qui prévienne. Le compteur d'avancement de
+ * chaque campagne sert donc aussi de détecteur de blocage : trois reprises qui
+ * n'avancent sur rien, on s'arrête et on dit pourquoi.
+ */
+const REPRISES_SANS_PROGRES_MAX_ = 3;
 
 /** Quota Admin SDK Directory : 2 400 requêtes/minute/utilisateur/projet. */
 const QUOTA_DIRECTORY_PAR_MIN = 2400;
@@ -138,6 +151,7 @@ const ACTIONS_ = {
 
   menuMoissonner180: { dialogue: true, faire: () => depuisMenu_('Moissonnage', () => moissonner(180)) },
   menuMoissonner30: { dialogue: true, faire: () => depuisMenu_('Moissonnage', () => moissonner(30)) },
+  menuResserrerBrut30: { dialogue: true, faire: () => depuisMenu_('Resserrage', () => resserrerBrut(30)) },
   menuInventorier: { dialogue: true, faire: () => depuisMenu_('Inventaire', inventorierJetons) },
   menuRafraichirComptes: { dialogue: true, faire: () => depuisMenu_('Profils des comptes', rafraichirComptes) },
   preparerRevocations: { dialogue: true, faire: () => depuisMenu_('Plan de révocation', preparerRevocations) },

@@ -123,6 +123,14 @@ entre-temps.
 
 C'est elle qui remplit l'onglet **Dormants**, et elle seule.
 
+> **Ce relevé peut être partiel, et il le dit.** Sur plusieurs milliers de
+> comptes, quelques appels échouent — un 429, un 503, un compte supprimé pendant
+> le parcours. Ils sont repassés une fois automatiquement ; ceux qui résistent
+> sont nommés dans l'onglet `_Échecs`, et leur colonne « État du jeton » reste
+> **vide** au lieu d'afficher « clos ». Vide veut dire *non mesuré*, jamais *rien
+> trouvé*. Le compte de ces comptes figure dans la synthèse. Relancer
+> l'inventaire les rattrape.
+
 ### 4. Classer
 
 Ouvrir l'onglet **À instruire** : c'est votre file de travail, triée. La colonne

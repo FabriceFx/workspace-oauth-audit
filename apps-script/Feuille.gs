@@ -71,11 +71,30 @@ const agreger_ = (classeur, etat) => {
   const C = {};
   COLONNES_BRUT_.forEach((id) => { C[id] = colonne_(entetesBrut, id); });
 
+  /*
+   * L'AGRÉGATION N'EST PAS REPRENABLE, ET C'EST ASSUMÉ.
+   *
+   * Elle accumule en mémoire une entrée par application, par couple
+   * compte/application et par portée. Ces tables ne tiennent ni dans
+   * PropertiesService — 9 Ko — ni dans un aller-retour de sérialisation qui
+   * coûterait plus cher que le calcul lui-même. Il n'y a donc pas de reprise
+   * possible : le balayage passe en une exécution, ou il ne passe pas.
+   *
+   * D'où la projection ci-dessous, faite sur le PREMIER lot. Échouer au bout
+   * de quatre minutes et demie pour annoncer qu'il en aurait fallu neuf est
+   * une perte sèche ; et surtout, l'ancien message conseillait de relancer,
+   * ce qui repartait de la ligne 2 pour échouer identiquement. Une impasse.
+   *
+   * La sortie est resserrerBrut(jours), qui réduit l'onglet brut sur place —
+   * bloc par bloc, sans accumulateur, donc reprenable, lui.
+   */
+  const tScan = Date.now();
+
   for (let debut = 2; debut <= dernier; debut += TAILLE_LOT_) {
     if (Date.now() - t0 > BUDGET_MS) {
       throw new Error(`Agrégation interrompue sur le budget de temps après ${nbLignes} `
-        + `lignes sur ${dernier - 1}. Le brut est intact : relancer reagreger(), `
-        + 'ou resserrer la fenêtre.');
+        + `lignes sur ${dernier - 1}. Le brut est intact. `
+        + 'Réduire le volume à agréger : resserrerBrut(30).');
     }
     const n = Math.min(TAILLE_LOT_, dernier - debut + 1);
     const lot = brut.getRange(debut, 1, n, COLONNES_BRUT_.length).getValues();
@@ -175,6 +194,28 @@ const agreger_ = (classeur, etat) => {
       if (l[C.demandeurMin]) c.demandeur = String(l[C.demandeurMin]);
       for (const p of listePortees) c.portees.add(p);
     }
+
+    // Projection sur le premier lot : on refuse tôt plutôt que d'échouer tard.
+    if (debut === 2 && dernier - 1 > n) {
+      const msParLigne = (Date.now() - tScan) / n;
+      const restant = msParLigne * (dernier - 1 - n);
+      const dispo = BUDGET_MS - (Date.now() - t0);
+      if (restant > dispo) {
+        const minutes = ((restant + (Date.now() - tScan)) / 60000).toFixed(1);
+        throw new Error(
+          `L'agrégation ne tiendra pas en une exécution : ${dernier - 1} lignes `
+          + `de journal, environ ${minutes} min nécessaires pour un budget de `
+          + `${(BUDGET_MS / 60000).toFixed(1)} min.\n\n`
+          + 'L\'agrégation ne se reprend pas — elle accumule en mémoire une entrée '
+          + 'par application, par couple et par portée. Relancer ne servirait à '
+          + 'rien : le calcul repartirait de la première ligne.\n\n'
+          + 'La sortie est de réduire le journal à agréger, SANS le redemander à '
+          + 'Google : « Resserrer l\'onglet brut » dans le menu (onglets '
+          + 'techniques), ou resserrerBrut(30) depuis l\'éditeur. L\'opération '
+          + 'garde les 30 derniers jours et se reprend toute seule si elle est '
+          + 'interrompue. Le rapport se recalcule ensuite.');
+      }
+    }
   }
 
   const contexte = {
@@ -191,6 +232,16 @@ const agreger_ = (classeur, etat) => {
   // l'inventaire a coûté 8 500 requêtes à établir.
   if (jetonsReleves) {
     fusionnerJetons_(apps, couples, portees, jetonsReleves, profils, catalogue);
+
+    // Les comptes que l'inventaire n'a pas su lire perdent leur « État du
+    // jeton » plutôt que d'hériter d'un « clos » qu'on n'a pas constaté.
+    const nonMesures = comptesNonMesures_(classeur);
+    contexte.comptesNonMesures = nonMesures.size;
+    if (nonMesures.size) {
+      for (const c of couples.values()) {
+        if (nonMesures.has(c.compte)) c.jetonNonMesure = true;
+      }
+    }
   }
 
   for (const a of apps.values()) a.evaluation = evaluer_(a);
@@ -230,6 +281,11 @@ const agreger_ = (classeur, etat) => {
   if (jetonsReleves) {
     dire_(`Inventaire : ${contexte.jetonsActifs} jetons actifs, `
       + `dont ${contexte.dormants} accès dormants — autorisés avant la fenêtre.`);
+    if (contexte.comptesNonMesures) {
+      dire_(`  ATTENTION : ${contexte.comptesNonMesures} compte(s) n'ont pas pu être lus.`);
+      dire_(`  Leur « État du jeton » reste vide — non mesuré, et non « clos ».`);
+      dire_(`  Ils sont nommés dans l'onglet ${nomOnglet_('echecs', lg)}.`);
+    }
   } else {
     dire_('Aucun inventaire de jetons : la colonne « Jeton » reste vide et les');
     dire_('accès antérieurs à la fenêtre restent invisibles. Menu > Inventorier');
@@ -395,6 +451,9 @@ const ecrireSynthese_ = (classeur, apps, couples, portees, ctx, lg) => {
     l.push(['Inventaire des jetons', '']);
     l.push(['   jetons actifs relevés', ctx.jetonsActifs]);
     l.push(['   dont accès dormants', ctx.dormants]);
+    // Un chiffre qui vaut zéro se dit quand même : il atteste que la mesure a
+    // été complète, ce qu'une ligne absente ne dit pas.
+    l.push(['   comptes NON MESURÉS', ctx.comptesNonMesures || 0]);
   }
 
   if (ctx.aInstruire !== undefined) {
@@ -503,6 +562,9 @@ const ecrireApplications_ = (classeur, apps, decisions, lg) => {
  */
 const etatJeton_ = (c, inventaire) => {
   if (!inventaire) return '';
+  // Un compte que l'annuaire a refusé de rendre n'est pas un compte sans jeton.
+  // Vide veut dire « non mesuré » ; « clos » serait une affirmation, et fausse.
+  if (c.jetonNonMesure) return '';
   return c.jetonActif ? 'actif' : 'clos';
 };
 

@@ -47,6 +47,18 @@ const COLONNES_JETONS_ = [
   'compteMin', 'clientId', 'applicationMin', 'porteesMin', 'anonyme', 'natif', 'releveLe'
 ];
 
+/**
+ * Les comptes que l'annuaire a refusé de rendre.
+ *
+ * Sur 8 500 appels, quelques échecs transitoires sont certains. Un compte
+ * absent de l'onglet des jetons se lit exactement comme un compte sans jeton :
+ * c'est la confusion que tout le reste de l'outil s'interdit — une colonne vide
+ * veut dire « non mesuré », jamais « rien trouvé ». Ces comptes sont donc
+ * nommés ici, repassés une fois en fin de parcours, et ceux qui résistent
+ * privent leur ligne d'« État du jeton » au lieu de la remplir à tort.
+ */
+const COLONNES_ECHECS_ = ['compteMin', 'motifEchec', 'tentatives', 'resultat'];
+
 /** Comptes traités entre deux écritures : compromis entre appels et pertes. */
 const BLOC_COMPTES_ = 50;
 
@@ -72,6 +84,42 @@ const retirerDeclencheursInventaire_ = () => {
 const programmerRepriseInventaire_ = () => {
   retirerDeclencheursInventaire_();
   ScriptApp.newTrigger(FONCTION_REPRISE_INVENTAIRE_).timeBased().after(60 * 1000).create();
+};
+
+/** Ce qui doit bouger d'une exécution à l'autre. Sinon, on est bloqué. */
+const empreinteInventaire_ = (etat) =>
+  `${etat.phase}:${etat.comptes}:${etat.traites}:${etat.jetons}:${etat.prochaineLigneEchec}`;
+
+/** L'onglet des échecs, créé à la demande et masqué comme les autres bruts. */
+const feuilleEchecs_ = (classeur) => {
+  const existante = chercherOnglet_(classeur, 'echecs');
+  if (existante) return existante;
+  const lg = reglages_(classeur).interface;
+  const f = classeur.insertSheet(nomOnglet_('echecs', lg));
+  const entetes = entetesEn_(COLONNES_ECHECS_, lg);
+  f.getRange(1, 1, 1, entetes.length).setValues([entetes]).setFontWeight('bold');
+  f.setFrozenRows(1);
+  f.hideSheet();
+  return f;
+};
+
+/**
+ * Les comptes dont les jetons n'ont PAS pu être lus, et le sont restés après
+ * la seconde tentative. Le rapport doit s'en souvenir : c'est ce qui distingue
+ * « ce compte n'a aucun jeton » de « on n'a pas pu savoir ».
+ */
+const comptesNonMesures_ = (classeur) => {
+  const f = chercherOnglet_(classeur, 'echecs');
+  const nonMesures = new Set();
+  if (!f || f.getLastRow() < 2) return nonMesures;
+  const v = f.getDataRange().getValues();
+  const iCompte = colonne_(v[0], 'compteMin');
+  const iResultat = colonne_(v[0], 'resultat');
+  for (const l of v.slice(1)) {
+    const compte = String(l[iCompte] || '').trim();
+    if (compte && !String(l[iResultat] || '').trim()) nonMesures.add(compte);
+  }
+  return nonMesures;
 };
 
 // ------------------------------------------------------------------- phases
@@ -121,6 +169,8 @@ const releverJetons_ = (classeur, etat, t0) => {
     const comptes = parc.getRange(etat.prochaineLigne, 1, n, 1).getValues();
     const lignes = [];
 
+    const echecs = [];
+
     for (const [compte] of comptes) {
       if (!compte) continue;
       try {
@@ -133,6 +183,9 @@ const releverJetons_ = (classeur, etat, t0) => {
           ]);
         }
       } catch (e) {
+        // Le compte est NOMMÉ, pas seulement compté : sans son nom, on ne peut
+        // ni le repasser ni retirer sa ligne du rapport.
+        echecs.push([compte, String(e.message || e).slice(0, 300), 1, '']);
         etat.erreurs++;
         if (!etat.premiereErreur) etat.premiereErreur = `${compte} : ${e.message || e}`;
       }
@@ -142,13 +195,100 @@ const releverJetons_ = (classeur, etat, t0) => {
         .setValues(lignes);
       etat.jetons += lignes.length;
     }
+    if (echecs.length) {
+      const fe = feuilleEchecs_(classeur);
+      fe.getRange(fe.getLastRow() + 1, 1, echecs.length, COLONNES_ECHECS_.length)
+        .setValues(echecs);
+    }
     // Avancé APRÈS l'écriture : une interruption fait au pire recommencer un
     // bloc, jamais en sauter un.
     etat.prochaineLigne += n;
     etat.traites += n;
     SpreadsheetApp.flush();
   }
-  return true;
+  // Le parcours est fini, mais pas l'inventaire : les comptes tombés en erreur
+  // méritent une seconde chance avant qu'on les déclare non mesurés.
+  etat.phase = 'reprise';
+  etat.prochaineLigneEchec = 2;
+  return false;
+};
+
+/**
+ * Phase 3 : repasser une fois les comptes tombés en erreur.
+ *
+ * La plupart des échecs sur un parc de plusieurs milliers de comptes sont
+ * transitoires — un 429, un 503, un compte supprimé pendant le parcours. Une
+ * seconde tentative les efface presque tous ; ceux qui restent sont un vrai
+ * constat, et ils sont traités comme tel.
+ */
+const repasserEchecs_ = (classeur, etat, t0) => {
+  const f = chercherOnglet_(classeur, 'echecs');
+  if (!f || f.getLastRow() < 2) return true;
+  const jetons = chercherOnglet_(classeur, 'jetons');
+  const aujourdhui = jour_(new Date());
+
+  // Une seule lecture, et des écritures par blocs : la liste des échecs est
+  // courte au regard du parc, mais une lecture et une écriture par cellule s'y
+  // paieraient quand même en minutes.
+  const valeurs = f.getDataRange().getValues();
+  const iCompte = colonne_(valeurs[0], 'compteMin');
+  const iMotif = colonne_(valeurs[0], 'motifEchec');
+  const iTentatives = colonne_(valeurs[0], 'tentatives');
+  const iResultat = colonne_(valeurs[0], 'resultat');
+  const dernier = valeurs.length;
+
+  // Ce qui reste à écrire depuis la dernière vidange, avec sa ligne de destination.
+  let premiereLigneEnAttente = etat.prochaineLigneEchec;
+  const enAttente = [];
+  const vider = () => {
+    if (!enAttente.length) return;
+    f.getRange(premiereLigneEnAttente, iMotif + 1, enAttente.length, 3)
+      .setValues(enAttente);
+    enAttente.length = 0;
+    SpreadsheetApp.flush();
+  };
+
+  // UNE SEULE SORTIE, et la vidange est après elle. Écrire par blocs oblige à
+  // vider avant de rendre la main ; un `return` au milieu de la boucle aurait
+  // perdu les tentatives déjà faites, et rien dans le banc ne l'aurait vu — on
+  // ne contrôle pas l'horloge. La forme de la boucle le rend impossible.
+  let interrompu = false;
+
+  while (etat.prochaineLigneEchec <= dernier) {
+    if (Date.now() - t0 > BUDGET_MS) { interrompu = true; break; }
+    const l = valeurs[etat.prochaineLigneEchec - 1];
+    const compte = String(l[iCompte] || '').trim();
+    const dejaTraite = String(l[iResultat] || '').trim();
+
+    if (!compte || dejaTraite) {
+      enAttente.push([l[iMotif] || '', l[iTentatives] || '', l[iResultat] || '']);
+    } else {
+      try {
+        const rep = AdminDirectory.Tokens.list(compte);
+        const lignes = (rep.items || []).map((t) => [
+          compte, t.clientId || '', t.displayText || '',
+          (t.scopes || []).join(' '),
+          t.anonymous ? 'oui' : '', t.nativeApp ? 'oui' : '', aujourdhui
+        ]);
+        if (lignes.length) {
+          jetons.getRange(jetons.getLastRow() + 1, 1, lignes.length, COLONNES_JETONS_.length)
+            .setValues(lignes);
+          etat.jetons += lignes.length;
+        }
+        enAttente.push([l[iMotif] || '', 2, 'relevé']);
+        etat.repris++;
+      } catch (e) {
+        enAttente.push([String(e.message || e).slice(0, 300), 2, '']);
+      }
+    }
+    etat.prochaineLigneEchec++;
+    if (enAttente.length >= BLOC_COMPTES_) {
+      vider();
+      premiereLigneEnAttente = etat.prochaineLigneEchec;
+    }
+  }
+  vider();
+  return !interrompu;
 };
 
 // -------------------------------------------------------------- moissonnage
@@ -162,16 +302,46 @@ function inventorierJetons() {
     etat.reprises++;
     dire_(`Reprise n°${etat.reprises} — phase « ${etat.phase} », `
       + `${etat.traites}/${etat.comptes} comptes, ${etat.jetons} jetons relevés`);
+
+    const empreinte = empreinteInventaire_(etat);
+    etat.sansProgres = empreinte === etat.empreinte ? (etat.sansProgres || 0) + 1 : 0;
+    etat.empreinte = empreinte;
+    if (etat.sansProgres >= REPRISES_SANS_PROGRES_MAX_) {
+      retirerDeclencheursInventaire_();
+      effacerEtatInventaire_();
+      dire_('');
+      dire_(`ABANDON — ${etat.sansProgres} reprises consécutives n'ont parcouru`);
+      dire_('aucun compte. L\'erreur ne passera pas toute seule : l\'inventaire est');
+      dire_('arrêté et son déclencheur retiré, plutôt que de réessayer chaque minute.');
+      dire_('');
+      dire_('Causes, par ordre de vraisemblance :');
+      dire_('  — la portée admin.directory.user.security n\'est plus consentie, ou');
+      dire_('    le rôle d\'administrateur a changé : relancer à la main rendra');
+      dire_('    l\'erreur lisible ;');
+      dire_('  — le quota de l\'annuaire est épuisé pour la journée ;');
+      dire_('  — le classeur a atteint le plafond de 10 millions de cellules.');
+      dire_('');
+      dire_(`ATTENTION : le relevé est PARTIEL — ${etat.traites} comptes sur ${etat.comptes}.`);
+      dire_('Ne l\'utilisez pas pour révoquer : un compte non parcouru y ressemble');
+      dire_('à un compte sans jeton. Relancez l\'inventaire depuis le début une fois');
+      dire_('la cause levée.');
+      vider_('Inventaire abandonné');
+      return;
+    }
   } else {
     etat = {
-      phase: 'comptes', pageToken: null, prochaineLigne: 2,
-      comptes: 0, traites: 0, jetons: 0, erreurs: 0, premiereErreur: '',
-      lancee: new Date().toISOString(), reprises: 0
+      phase: 'comptes', pageToken: null, prochaineLigne: 2, prochaineLigneEchec: 2,
+      comptes: 0, traites: 0, jetons: 0, erreurs: 0, repris: 0, premiereErreur: '',
+      lancee: new Date().toISOString(), reprises: 0,
+      // Voir empreinteInventaire_ : le détecteur de blocage.
+      empreinte: '', sansProgres: 0
     };
     // On repart d'un relevé neuf : mêler deux inventaires ferait passer pour
     // actifs des jetons révoqués entre-temps.
     const ancien = chercherOnglet_(classeur, 'parc');
     if (ancien) classeur.deleteSheet(ancien);
+    const anciensEchecs = chercherOnglet_(classeur, 'echecs');
+    if (anciensEchecs) classeur.deleteSheet(anciensEchecs);
     const brut = onglet_(classeur, 'jetons', COLONNES_JETONS_, reglages_(classeur).interface);
     brut.hideSheet();
     dire_('Nouvel inventaire — le parc va être recensé, puis parcouru compte par compte.');
@@ -183,7 +353,11 @@ function inventorierJetons() {
       const recense = recenserParc_(classeur, etat, t0);
       if (recense) dire_(`Parc recensé : ${etat.comptes} comptes.`);
     }
-    if (etat.phase === 'jetons') fini = releverJetons_(classeur, etat, t0);
+    if (etat.phase === 'jetons') {
+      const parcouru = releverJetons_(classeur, etat, t0);
+      if (parcouru) fini = true;
+    }
+    if (etat.phase === 'reprise') fini = repasserEchecs_(classeur, etat, t0);
   } catch (e) {
     ecrireEtatInventaire_(etat);
     programmerRepriseInventaire_();
@@ -201,7 +375,8 @@ function inventorierJetons() {
     ecrireEtatInventaire_(etat);
     programmerRepriseInventaire_();
     const reste = etat.phase === 'comptes' ? 'recensement du parc en cours'
-      : `${etat.traites}/${etat.comptes} comptes parcourus`;
+      : etat.phase === 'reprise' ? `${etat.erreurs} compte(s) en échec repassés`
+        : `${etat.traites}/${etat.comptes} comptes parcourus`;
     dire_(`Budget de temps atteint — ${reste}, ${etat.jetons} jetons relevés.`);
     dire_('Reprise programmée dans une minute.');
     vider_('Inventaire en cours');
@@ -212,7 +387,24 @@ function inventorierJetons() {
   dire_(`Inventaire terminé — ${etat.comptes} comptes parcourus, `
     + `${etat.jetons} jetons actifs relevés, ${etat.reprises + 1} exécution(s).`);
   if (etat.erreurs) {
-    dire_(`${etat.erreurs} compte(s) en erreur, ignorés. Premier : ${etat.premiereErreur}`);
+    const restants = etat.erreurs - etat.repris;
+    dire_('');
+    dire_(`${etat.erreurs} compte(s) ont échoué au premier passage ; `
+      + `${etat.repris} ont été relevés à la seconde tentative.`);
+    dire_(`Premier échec rencontré : ${etat.premiereErreur}`);
+    if (restants > 0) {
+      dire_('');
+      dire_(`${restants} compte(s) restent NON MESURÉS. Ils sont nommés dans l'onglet`);
+      dire_(`${nomOnglet_('echecs', reglages_(classeur).interface)}, avec le motif du refus.`);
+      dire_('');
+      dire_('Ce n\'est pas un détail de journalisation. Pour ces comptes, la colonne');
+      dire_('« État du jeton » de l\'onglet Autorisants reste VIDE au lieu d\'afficher');
+      dire_('« clos » : on ignore ce qu\'ils portent, et un accès qu\'on n\'a pas su');
+      dire_('lire ne doit pas se donner pour un accès fermé.');
+      dire_('');
+      dire_('Ils sont aussi hors du champ des révocations : on ne révoque que ce');
+      dire_('qu\'on a constaté. Relancez l\'inventaire pour les rattraper.');
+    }
   }
   dire_('');
   dire_('L\'agrégation va croiser ce relevé avec le journal.');

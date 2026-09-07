@@ -113,6 +113,8 @@ const langueDe_ = (courriel, params) => {
 const ONGLETS_ = {
   brut: { fr: '_Brut', en: '_Raw' },
   parc: { fr: '_Parc', en: '_Estate' },
+  echecs: { fr: '_Échecs', en: '_Failures' },
+  brutTemp: { fr: '_Brut (resserrage)', en: '_Raw (trimming)' },
   jetons: { fr: '_Jetons', en: '_Tokens' },
   comptes: { fr: '_Comptes', en: '_Accounts' },
   synthese: { fr: 'Synthèse', en: 'Summary' },
@@ -150,6 +152,8 @@ const COLONNES_ = {
   anonyme: { fr: 'anonyme', en: 'anonymous' },
   natif: { fr: 'natif', en: 'native' },
   releveLe: { fr: 'releve_le', en: 'collected_on' },
+  motifEchec: { fr: 'motif_echec', en: 'failure_reason' },
+  tentatives: { fr: 'tentatives', en: 'attempts' },
 
   compte: { fr: 'Compte', en: 'Account' },
   domaine: { fr: 'Domaine', en: 'Domain' },
@@ -441,6 +445,10 @@ const TEXTES_ = {
   'menu.technique': { fr: 'Onglets techniques', en: 'Technical tabs' },
   'menu.afficherBrut': { fr: 'Afficher l\'onglet brut', en: 'Show the raw tab' },
   'menu.masquerBrut': { fr: 'Masquer l\'onglet brut', en: 'Hide the raw tab' },
+  'menu.resserrer': {
+    fr: 'Resserrer l\'onglet brut sur 30 jours…',
+    en: 'Trim the raw tab to 30 days…'
+  },
   'menu.guide': { fr: 'Guide complet', en: 'Full guide' },
   'menu.aide': { fr: 'Aide — le déroulé en bref', en: 'Help — the sequence in brief' },
   'menu.aPropos': { fr: 'À propos', en: 'About' },
@@ -553,6 +561,23 @@ const TEXTES_ = {
       + 'classeur.\n\nContinuer ?',
     en: 'The last {n} days of the audit log will be read and written into this '
       + 'workbook.\n\nContinue?'
+  },
+  'confirm.resserrer.titre': { fr: 'Resserrer l\'onglet brut', en: 'Trim the raw tab' },
+  'confirm.resserrer.corps': {
+    fr: 'L\'onglet brut compte {lignes} lignes. Celles antérieures au {seuil} vont '
+      + 'être SUPPRIMÉES du classeur — elles ne sont pas archivées ailleurs, et '
+      + 'seul un nouveau moissonnage les ramènerait.\n\n'
+      + 'À faire quand l\'agrégation annonce qu\'elle ne tient pas en une '
+      + 'exécution : elle ne se reprend pas, il faut donc lui donner moins à '
+      + 'lire.\n\nL\'opération écrit à côté et ne remplace qu\'à la fin : une '
+      + 'interruption laisse le brut intact.\n\nContinuer ?',
+    en: 'The raw tab holds {lignes} rows. Those older than {seuil} will be DELETED '
+      + 'from the workbook — they are not archived anywhere else, and only a new '
+      + 'harvest would bring them back.\n\n'
+      + 'Do this when aggregation reports it cannot fit in one execution: it '
+      + 'cannot resume, so it must be given less to read.\n\nThe operation writes '
+      + 'alongside and only swaps at the end: an interruption leaves the raw tab '
+      + 'intact.\n\nContinue?'
   },
   'confirm.inventaire.titre': { fr: 'Relever les jetons actifs', en: 'Collect active tokens' },
   'confirm.inventaire.corps': {

@@ -51,6 +51,7 @@ class FauxFeuille {
       setWrap() { return this; },
       setVerticalAlignment() { return this; },
       setValue(v) { return this.setValues([[v]]); },
+      getValue() { return this.getValues()[0][0]; },
       setDataValidation() { return this; },
       createFilter() { return { remove() {} }; }
     };
@@ -67,6 +68,8 @@ class FauxFeuille {
   autoResizeColumns() { return this; }
   hideSheet() { this.cachee = true; return this; }
   showSheet() { this.cachee = false; return this; }
+  isSheetHidden() { return this.cachee; }
+  getValue() { return this.cells[0] ? this.cells[0][0] : ''; }
 }
 
 class FauxClasseur {
@@ -119,6 +122,7 @@ const sandbox = {
   },
   SpreadsheetApp: {
     getActive: () => classeurActif,
+    flush: () => {},
     newDataValidation: () => ({
       requireValueInList() { return this; },
       setAllowInvalid() { return this; },
@@ -155,7 +159,9 @@ const {
   t_, TEXTES_, LANGUES_, langueValide_, langueDe_, reglages_, enClairLangue_,
   dateLisibleLangue_,
   estStatut_, nomStatut_, statutsEn_, ACTIONS_, STATUTS_LANGUE_,
-  moissonner, entetesBrut_
+  moissonner, entetesBrut_, resserrerBrut, inventorierJetons,
+  comptesNonMesures_, COLONNES_ECHECS_, ilYaJours_,
+  REPRISES_SANS_PROGRES_MAX_
 } = Object.fromEntries([
   'famille_', 'domaine_', 'portees_', 'octets_', 'classer_', 'lignesDe_',
   'agreger_', 'brutCourant_', 'etatPresume_', 'COLONNES_BRUT_',
@@ -171,7 +177,9 @@ const {
   't_', 'TEXTES_', 'LANGUES_', 'langueValide_', 'langueDe_', 'reglages_',
   'enClairLangue_', 'dateLisibleLangue_',
   'estStatut_', 'nomStatut_', 'statutsEn_', 'ACTIONS_', 'STATUTS_LANGUE_',
-  'moissonner', 'entetesBrut_'
+  'moissonner', 'entetesBrut_', 'resserrerBrut', 'inventorierJetons',
+  'comptesNonMesures_', 'COLONNES_ECHECS_', 'ilYaJours_',
+  'REPRISES_SANS_PROGRES_MAX_'
 ].map((n) => [n, pris(n)]));
 
 let echecs = 0;
@@ -1060,6 +1068,148 @@ proprietes.set('moisson', JSON.stringify({
 moissonner();
 verifier('une reprise ajoute, elle ne vide pas',
   chercherOnglet_(classeurActif, 'brut').getLastRow(), brutApres1 + 1);
+classeurActif = memoireClasseur;
+
+
+// ===========================================================================
+// Les trois défauts de robustesse à l'échelle : garde-fou de reprise, comptes
+// non mesurés, impasse d'agrégation.
+// ===========================================================================
+
+let declencheursPoses = 0;
+const scriptAppCompteur = {
+  getProjectTriggers: () => [],
+  newTrigger: () => ({
+    timeBased: () => ({ after: () => ({ create: () => { declencheursPoses++; } }) })
+  })
+};
+
+console.log('\nReprise — une erreur permanente ne boucle pas indéfiniment');
+// Le défaut : sur erreur, la campagne se reprogramme à la minute suivante,
+// sans plafond. Une cause permanente produit 1 440 exécutions par jour.
+proprietes.clear();
+declencheursPoses = 0;
+sandbox.ScriptApp = scriptAppCompteur;
+sandbox.AdminReports = { Activities: { list: () => { throw new Error('403 — rôle insuffisant'); } } };
+classeurActif = new FauxClasseur(['Feuille 1']);
+// 1 lancement + 4 reprises : la dernière doit abandonner au lieu de replanifier.
+for (let i = 0; i < 2 + REPRISES_SANS_PROGRES_MAX_; i++) {
+  try { moissonner(30); } catch (e) { /* l'échec est attendu */ }
+}
+verifier('la campagne bloquée finit par s\'abandonner',
+  proprietes.has('moisson'), false);
+verifier('… et cesse de programmer des reprises',
+  declencheursPoses, 1 + REPRISES_SANS_PROGRES_MAX_);
+// Une campagne qui PROGRESSE, elle, ne doit surtout pas être abandonnée.
+proprietes.clear();
+declencheursPoses = 0;
+let page = 0;
+sandbox.AdminReports = {
+  Activities: {
+    list: () => {
+      page++;
+      return {
+        items: [{
+          id: { time: '2026-09-01T10:00:00.000Z' },
+          actor: { email: 'bob@exemple.fr' },
+          events: [{ name: 'authorize', parameters: [
+            { name: 'app_name', value: 'NotebookLM' },
+            { name: 'client_id', value: 'cidA' },
+            { name: 'scope', multiValue: [`${J}drive.readonly`] }] }]
+        }],
+        nextPageToken: page < 4 ? `p${page}` : null
+      };
+    }
+  }
+};
+classeurActif = new FauxClasseur(['Feuille 1']);
+moissonner(30);
+verifier('une campagne qui avance va jusqu\'au bout',
+  chercherOnglet_(classeurActif, 'brut').getLastRow(), 5);
+
+console.log('\nInventaire — un compte non lu n\'est pas un compte sans jeton');
+// Le défaut : l'échec était compté, jamais nommé ; le compte disparaissait de
+// l'onglet des jetons, où son absence se lit « aucun jeton ».
+const jetonDe = (cid) => ({ items: [{ clientId: cid, displayText: 'Appli A',
+  scopes: [`${J}drive.readonly`], anonymous: false, nativeApp: false }] });
+proprietes.clear();
+sandbox.ScriptApp = scriptAppCompteur;
+sandbox.AdminDirectory = {
+  Users: { list: () => ({ users: [
+    { primaryEmail: 'ok@exemple.fr' },
+    { primaryEmail: 'ko@exemple.fr' },
+    { primaryEmail: 'flottant@exemple.fr' }] }) },
+  Tokens: {
+    list: (compte) => {
+      if (compte === 'ko@exemple.fr') throw new Error('503 — service indisponible');
+      // Celui-ci échoue au premier passage et réussit au second : c'est le cas
+      // majoritaire sur un grand parc, et la reprise doit l'effacer.
+      if (compte === 'flottant@exemple.fr') {
+        sandbox.AdminDirectory.Tokens.list = (c) =>
+          (c === 'ko@exemple.fr' ? (() => { throw new Error('503'); })() : jetonDe('cidB'));
+        throw new Error('429 — trop de requêtes');
+      }
+      return jetonDe('cidA');
+    }
+  }
+};
+classeurActif = new FauxClasseur(['Feuille 1']);
+inventorierJetons();
+
+const feuilleEchecs = chercherOnglet_(classeurActif, 'echecs');
+verifier('les comptes en échec sont NOMMÉS, pas seulement comptés',
+  Boolean(feuilleEchecs), true);
+const echecsLus = feuilleEchecs.getDataRange().getValues();
+const iCompteEchec = colonne_(echecsLus[0], 'compteMin');
+const nommes = echecsLus.slice(1).map((l) => l[iCompteEchec]).sort();
+verifier('… les deux qui ont échoué au premier passage',
+  nommes, ['flottant@exemple.fr', 'ko@exemple.fr']);
+const nonMesures = comptesNonMesures_(classeurActif);
+verifier('celui qui a réussi au second passage n\'est plus non mesuré',
+  nonMesures.has('flottant@exemple.fr'), false);
+verifier('celui qui résiste, si', nonMesures.has('ko@exemple.fr'), true);
+verifier('et ses jetons ne sont pas dans le relevé',
+  chercherOnglet_(classeurActif, 'jetons').getDataRange().getValues()
+    .slice(1).some((l) => l[0] === 'ko@exemple.fr'), false);
+
+// LE POINT QUI COMPTE : le rapport ne doit pas le déclarer « clos ».
+verifier('un compte non mesuré n\'a PAS d\'état de jeton',
+  etatJeton_({ compte: 'ko@exemple.fr', jetonNonMesure: true, jetonActif: false }, true), '');
+verifier('un compte mesuré sans jeton, lui, est bien « clos »',
+  etatJeton_({ compte: 'ok@exemple.fr', jetonActif: false }, true), 'clos');
+verifier('et sans inventaire du tout, la colonne reste vide',
+  etatJeton_({ compte: 'ok@exemple.fr', jetonActif: false }, false), '');
+
+console.log('\nResserrage — la sortie de l\'impasse d\'agrégation');
+// L'agrégation n'est pas reprenable : quand le brut est trop gros, relancer
+// repart de la ligne 2 et échoue pareil. Le resserrage, lui, n'accumule rien.
+proprietes.clear();
+sandbox.ScriptApp = scriptAppCompteur;
+classeurActif = new FauxClasseur(['Feuille 1']);
+const brutARessserrer = brutCourant_(classeurActif, 'fr');
+const dateRecente = new Date(Date.now() - 5 * 86400000);
+const dateAncienne = new Date(Date.now() - 120 * 86400000);
+// De vrais objets Date, comme Sheets en rend : c'est le seul essai qui prouve
+// que le filtre passe par jour_ et non par une comparaison de chaînes.
+brutARessserrer.getRange(2, 1, 3, COLONNES_BRUT_.length).setValues([
+  [dateRecente, 'bob@exemple.fr', 'exemple.fr', 'authorize', 'Récente', 'cidR', '', '', '', '', '', '', '', ''],
+  [dateAncienne, 'bob@exemple.fr', 'exemple.fr', 'authorize', 'Ancienne', 'cidV', '', '', '', '', '', '', '', ''],
+  [dateRecente, 'ana@exemple.fr', 'exemple.fr', 'activity', 'Récente', 'cidR', '', '', '', '', '', '', '', '']
+]);
+resserrerBrut(30);
+const brutResserre = chercherOnglet_(classeurActif, 'brut');
+verifier('l\'onglet garde son nom', brutResserre.getName(), nomOnglet_('brut', 'fr'));
+verifier('les en-têtes sont intacts',
+  brutResserre.cells[0][0], entetesEn_(COLONNES_BRUT_, 'fr')[0]);
+verifier('seules les lignes dans la fenêtre restent', brutResserre.getLastRow(), 3);
+verifier('la ligne de 120 jours est écartée',
+  brutResserre.getDataRange().getValues().slice(1).some((l) => l[4] === 'Ancienne'), false);
+verifier('les récentes sont gardées',
+  brutResserre.getDataRange().getValues().slice(1).filter((l) => l[4] === 'Récente').length, 2);
+verifier('l\'onglet de travail a disparu',
+  Boolean(chercherOnglet_(classeurActif, 'brutTemp')), false);
+verifier('et l\'état ne traîne pas', proprietes.has('resserrage'), false);
+verifier('le menu sait le lancer', Boolean(ACTIONS_.menuResserrerBrut30), true);
 classeurActif = memoireClasseur;
 
 console.log(`\n${echecs ? `${echecs} échec(s)` : 'tout passe'}`);

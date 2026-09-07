@@ -291,6 +291,7 @@ Modules pressentis, sur le découpage de la passerelle : `Journal` (Reports),
 | ✅ **1.3** | menu qui dit lui-même la prochaine étape | on ne se perd plus dans ses propres actions |
 | ✅ **1.4** | bilinguisme de ce qui sort du classeur — courriel, vue, fiche | on peut écrire à qui ne lit pas le français |
 | ✅ **1.5** | assistant en panneau latéral ; bilinguisme du classeur — menu, dialogues, onglets, colonnes, statuts | l'outil se lit en anglais, et dit en permanence où l'on en est |
+| ✅ **1.6** | robustesse à l'échelle : garde-fou de reprise, comptes non mesurés nommés, resserrage du brut | ce qui ne se voit que sur un grand parc |
 | **2.0** | historisation au-delà des 6 mois, détection de dérive, nouvelle application signalée | la surveillance continue |
 
 La v0.1 est un script de quelques dizaines de lignes. Elle est là pour tuer le
@@ -737,6 +738,53 @@ Pas encore : **les comptes rendus d'exécution** — les 332 appels à `dire_` e
 titres de leurs dialogues — ainsi que l'onglet `Guide` et l'aide. Traduire le
 titre au-dessus d'un texte français produirait un résultat pire que l'état
 actuel : c'est un bloc à traiter d'un tenant.
+
+## Ce qui casse à 8 500 comptes, et ce qu'on y a fait
+
+Trois défauts n'apparaissent que sur un grand parc, et aucun ne se signale.
+
+**Une reprise automatique qui boucle.** Le moissonnage et l'inventaire se
+reprogramment à la minute suivante quand ils sont interrompus — c'est ce qui
+leur permet de dépasser les six minutes par exécution. Sur une erreur
+*permanente*, cette même mécanique produit 1 440 exécutions par jour et consomme
+les six heures de temps d'exécution quotidien accordées en Workspace. Chaque
+campagne porte donc une empreinte de son avancement, et trois reprises
+consécutives sans progrès l'arrêtent.
+
+**Un compte que l'annuaire refuse de rendre.** Sur 8 500 appels à `Tokens.list`,
+quelques 429 et 503 sont certains. Un compte absent du relevé se lit exactement
+comme un compte sans jeton : c'est la confusion que tout le reste de l'outil
+s'interdit. Les échecs sont donc **nommés** dans un onglet `_Échecs` avec leur
+motif, **repassés une fois** en fin de parcours, et ceux qui résistent laissent
+leur colonne « État du jeton » **vide** plutôt que « clos ». La synthèse porte la
+ligne « comptes NON MESURÉS » même quand elle vaut zéro — un chiffre nul atteste
+que la mesure a été complète, une ligne absente ne dit rien.
+
+**Une agrégation qui ne tient pas en une exécution.** Elle n'est pas reprenable,
+et c'est assumé : elle accumule une entrée par application, par couple
+compte/application et par portée, tables qui ne tiennent ni dans les 9 Ko de
+`PropertiesService` ni dans une sérialisation moins chère que le calcul. Elle
+projette donc sa durée **sur le premier lot** et refuse tôt, en nommant la
+sortie : `resserrerBrut(30)` réduit le journal déjà collecté sans le redemander à
+Google. Le resserrage, lui, n'accumule rien — bloc par bloc, donc reprenable — et
+n'écrase l'onglet d'origine qu'à la toute fin.
+
+### Les deux plafonds à surveiller
+
+**10 millions de cellules par classeur.** L'onglet brut fait 14 colonnes : il
+saturerait à 714 000 lignes s'il était seul, et il ne l'est pas — l'onglet
+`Autorisants` porte une ligne par couple compte/application, soit 85 000 lignes
+sur 15 colonnes pour un parc de 8 500 comptes avec une dizaine d'applications
+chacun.
+
+**Six minutes par exécution, six heures par jour** sur déclencheurs en Workspace.
+Le chiffre de 30 minutes par exécution qui circule encore a été retiré.
+
+Avant un premier moissonnage sur un grand parc : lancer `sonde(30)`, lire
+« N événements lus en X s », multiplier par six pour l'ordre de grandeur à
+180 jours. C'est ce chiffre qui décide de la fenêtre, et il dépend entièrement de
+la journalisation des événements `activity` du tenant — un facteur cent entre
+deux tenants.
 
 ## Ce que le journal permet de dire, et ce qu'il ne permet pas
 
