@@ -41,9 +41,15 @@ const COLONNES_DECISIONS_ = [
  * déroulante s'écrit dans la langue de l'interface, mais un statut lu se
  * reconnaît dans les deux — un classeur classé en français ne perd pas ses
  * décisions en basculant en anglais. D'où : jamais de comparaison de chaîne sur
- * un statut, toujours estStatut_.
+ * un statut, toujours estStatut_. Leur ordre est ORDRE_STATUTS_, au même endroit.
+ *
+ * Pas d'alias de premier niveau ici. clasp pousse les fichiers par ordre
+ * alphabétique et Apps Script les exécute dans cet ordre : Decision.gs passe
+ * avant Langues.gs. Un `const STATUTS_ = ORDRE_STATUTS_` posé à cet endroit a
+ * levé une ReferenceError au chargement, et tout le projet a cessé de répondre
+ * de la v1.5.0 à la v1.7.0. Lire ORDRE_STATUTS_ dans une fonction ne pose aucun
+ * problème : le corps s'exécute après le chargement de tous les fichiers.
  */
-const STATUTS_ = ORDRE_STATUTS_;
 
 /** Statuts qui dispensent d'écrire aux autorisants. */
 const STATUTS_SILENCIEUX_ = ['approuvee', 'toleree'];

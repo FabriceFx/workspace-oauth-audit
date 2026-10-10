@@ -134,4 +134,16 @@ Il charge les `.gs` dans un contexte où Sheets est simulé et rejoue des
 événements de la forme exacte que rend la Reports API. À lancer avant chaque
 `clasp push`. Toute correction de défaut s'accompagne du cas qui l'aurait
 attrapé — c'est ainsi qu'ont été ajoutés le cas « antérieur à la fenêtre », les
-horodatages en objets `Date` et la fusion des applications homonymes.
+horodatages en objets `Date`, la fusion des applications homonymes et le
+chargement dans l'ordre de clasp.
+
+## Ordre de chargement
+
+clasp pousse les fichiers par ordre alphabétique, et Apps Script exécute leur
+premier niveau dans cet ordre. **Le premier niveau d'un fichier ne lit jamais un
+nom déclaré dans un fichier qui le suit** : `Decision.gs` lisait `ORDRE_STATUTS_`
+de `Langues.gs`, et de la v1.5.0 à la v1.7.0 le projet entier ne s'est plus
+chargé. Une lecture dans le corps d'une fonction ne pose aucun problème.
+
+Le banc charge les fichiers dans ce même ordre, lu sur le répertoire : jamais
+de liste tenue à la main, et pas de `filePushOrder` dans `.clasp.json`.

@@ -7,6 +7,20 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.1] - 2026-10-10
+
+> **Le constat qui dérange :** *Un banc qui choisit l'ordre de chargement ne teste pas le projet qu'on déploie.*
+> Depuis la v1.5.0, le projet ne se chargeait plus chez Google, et le banc ne l'a pas vu : il chargeait les fichiers dans un ordre tenu à la main, qui n'était pas celui de clasp.
+
+### Corrigé
+- **Le projet se charge de nouveau.** `Decision.gs` posait au premier niveau `const STATUTS_ = ORDRE_STATUTS_`, alors que `ORDRE_STATUTS_` est déclaré dans `Langues.gs`. clasp pousse les fichiers par ordre alphabétique et Apps Script exécute leur premier niveau dans cet ordre : `Decision.gs` passe avant `Langues.gs`, d'où une `ReferenceError` au chargement — et, une fois le chargement interrompu, **plus aucune fonction du projet ne répond**, menu compris, y compris celles qui n'ont rien à voir avec les décisions. Les versions 1.5.0 à 1.7.0 sont toutes touchées. L'alias n'avait aucun lecteur : il est supprimé plutôt que rendu paresseux, et le code lit `ORDRE_STATUTS_` là où il en a besoin, dans le corps des fonctions. **Un déploiement antérieur doit être remplacé** : *Gérer les déploiements > modifier > Version : nouvelle version*.
+
+### Banc d'essai
+- **Les fichiers se chargent dans l'ordre de clasp**, lu sur le répertoire et trié comme clasp le trie, au lieu d'une liste tenue à la main. C'est le cas qui aurait attrapé le défaut : sur le code de la v1.7.0, le banc s'arrête désormais sur `Decision.gs ne se charge pas : ORDRE_STATUTS_ is not defined`. La liste oubliait aussi `Sonde.gs`, qui est désormais chargé. Un `filePushOrder` dans `.clasp.json` fait échouer le banc : une dépendance de chargement se corrige dans le code, pas en imposant un ordre qui se perd au premier fichier ajouté.
+- **Le cas « la date de production est écrite en français » ne dépend plus du jour où il tourne.** Il attendait « 6 septembre 2026 » en dur, alors que la date comparée est celle de l'agrégation, donc celle du banc : il échouait tous les jours depuis le 7 septembre.
+
+---
+
 ## [1.7.0] - 2026-09-07
 
 > **Le constat qui dérange :** *Un chiffre juste sous une étiquette fausse est un chiffre faux.*

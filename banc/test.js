@@ -135,11 +135,37 @@ const sandbox = {
   AdminDirectory: null
 };
 vm.createContext(sandbox);
-for (const f of ['Commun.gs', 'Langues.gs', 'Journal.gs', 'Decision.gs', 'Comptes.gs',
-  'Portees.gs', 'Volumetrie.gs', 'Inventaire.gs', 'Feuille.gs',
-  'Sollicitation.gs', 'Revocation.gs', 'Guide.gs', 'Fiche.gs', 'WebApp.gs',
-  'Menu.gs', 'Sidebar.gs']) {
-  vm.runInContext(fs.readFileSync(P + f, 'utf8'), sandbox, { filename: f });
+
+// Ordre de chargement : celui de clasp, et rien d'autre. Apps Script exécute le
+// premier niveau de chaque fichier dans l'ordre où clasp les a poussés —
+// alphabétique (localeCompare), sauf `filePushOrder` dans .clasp.json.
+//
+// Le banc tenait autrefois une liste à la main, où Langues.gs précédait
+// Decision.gs : il passait, alors qu'en production Decision.gs lisait
+// ORDRE_STATUTS_ avant sa déclaration. ReferenceError au chargement, et plus
+// une seule fonction du projet ne répondait, de la v1.5.0 à la v1.7.0. La liste
+// oubliait aussi Sonde.gs.
+//
+// `filePushOrder` est refusé plutôt que rejoué : un ordre imposé à la main se
+// perd au premier fichier ajouté. Une dépendance de chargement se corrige dans
+// le code.
+const clasp = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '.clasp.json'), 'utf8'));
+if (clasp.filePushOrder) {
+  console.log('ÉCHEC  .clasp.json déclare filePushOrder : supprimer la dépendance de '
+    + 'chargement dans le code plutôt que d\'imposer un ordre.');
+  process.exit(1);
+}
+const ordreClasp = fs.readdirSync(P).filter((f) => /\.(gs|js)$/.test(f))
+  .sort((a, b) => a.localeCompare(b));
+for (const f of ordreClasp) {
+  try {
+    vm.runInContext(fs.readFileSync(P + f, 'utf8'), sandbox, { filename: f });
+  } catch (e) {
+    console.log(`ÉCHEC  ${f} ne se charge pas : ${e.message}`
+      + `\n  ordre d'exécution chez Google : ${ordreClasp.join(', ')}`
+      + '\n  En production, toute exécution échouerait au chargement du projet.');
+    process.exit(1);
+  }
 }
 // Les déclarations `const` de portée globale ne deviennent pas des propriétés de
 // l'objet global : on va les chercher dans la portée lexicale du contexte.
@@ -892,8 +918,12 @@ verifier('la priorité est expliquée sur la page',
   accueil.includes('somme de points, non une'), true);
 verifier('la date de production est rappelée',
   accueil.includes('Données produites le'), true);
-verifier('et elle est écrite en français',
-  accueil.includes('6 septembre 2026'), true);
+// « Généré le » est l'heure de l'agrégation, donc celle du banc : la date
+// attendue écrite en dur (« 6 septembre 2026 ») n'a été juste qu'un seul jour,
+// et ce cas échouait depuis le 7 septembre.
+const produiteLe = dateLisible_(sandbox.Utilities.formatDate(new Date(),
+  sandbox.Session.getScriptTimeZone(), 'yyyy-MM-dd'));
+verifier('et elle est écrite en français', accueil.includes(produiteLe), true);
 verifier('aucune date ISO ne subsiste sur la page',
   /\d{4}-\d{2}-\d{2}/.test(accueil), false);
 verifier('le lecteur sait qu\'il est identifié',

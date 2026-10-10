@@ -21,7 +21,7 @@
  * pire que pas de version du tout, puisqu'un déploiement Apps Script sert une
  * copie figée du code et qu'on ne peut pas deviner laquelle tourne.
  */
-const VERSION_ = '1.7.0';
+const VERSION_ = '1.7.1';
 
 /**
  * Marge de sécurité sous le plafond d'exécution, en millisecondes.
