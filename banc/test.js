@@ -149,7 +149,10 @@ vm.createContext(sandbox);
 // `filePushOrder` est refusé plutôt que rejoué : un ordre imposé à la main se
 // perd au premier fichier ajouté. Une dépendance de chargement se corrige dans
 // le code.
-const clasp = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '.clasp.json'), 'utf8'));
+// .clasp.json est exclu de Git : la CI ne l'a pas. Son absence vaut l'ordre
+// par défaut de clasp, l'alphabétique — celui que le banc rejoue déjà.
+const cheminClasp = path.join(__dirname, '..', '.clasp.json');
+const clasp = fs.existsSync(cheminClasp) ? JSON.parse(fs.readFileSync(cheminClasp, 'utf8')) : {};
 if (clasp.filePushOrder) {
   console.log('ÉCHEC  .clasp.json déclare filePushOrder : supprimer la dépendance de '
     + 'chargement dans le code plutôt que d\'imposer un ordre.');
