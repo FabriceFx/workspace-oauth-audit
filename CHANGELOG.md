@@ -7,7 +7,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
-## [Non publié]
+## [1.7.2] - 2026-10-15
 
 ### Corrigé
 
