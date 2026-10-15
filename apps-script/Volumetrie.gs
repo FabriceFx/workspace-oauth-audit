@@ -62,7 +62,11 @@ const fenetreRecenteEffective_ = (horoMin) => {
   if (!horoMin) return FENETRE_RECENTE_JOURS_;
   const debut = new Date(`${horoMin}T00:00:00Z`).getTime();
   if (isNaN(debut)) return FENETRE_RECENTE_JOURS_;
-  const jours = Math.round((Date.now() - debut) / (24 * 3600 * 1000));
+  // Jours COMPLETS couverts, et non arrondis : le début est lu à minuit, la
+  // fin est l'heure présente, et l'arrondi faisait annoncer « 7 jours » le
+  // matin et « 8 jours » l'après-midi pour le même journal. L'étiquette ne
+  // promet jamais plus que ce que le journal contient.
+  const jours = Math.floor((Date.now() - debut) / (24 * 3600 * 1000));
   return Math.max(1, Math.min(FENETRE_RECENTE_JOURS_, jours));
 };
 

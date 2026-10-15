@@ -1258,6 +1258,17 @@ verifier('un journal de 7 jours la ramène à 7',
   fenetreRecenteEffective_(ilYa(7)), 7);
 verifier('un journal d\'un jour ne descend pas à zéro',
   fenetreRecenteEffective_(ilYa(0)), 1);
+
+// Défaut corrigé : la fenêtre était ARRONDIE, et le même journal se disait
+// de 7 jours le matin, de 8 l'après-midi. Le banc ne passait que le matin.
+// L'horloge est figée à deux heures du même jour, de part et d'autre de midi.
+const dateNowReel = Date.now;
+for (const heure of ['2026-10-15T09:00:00Z', '2026-10-15T18:40:00Z']) {
+  Date.now = () => new Date(heure).getTime();
+  verifier(`un journal commencé le 8 octobre couvre 7 jours, à ${heure.slice(11, 16)} UTC`,
+    fenetreRecenteEffective_('2026-10-08'), 7);
+}
+Date.now = dateNowReel;
 verifier('sans donnée, on reste sur la fenêtre nominale',
   fenetreRecenteEffective_(''), FENETRE_RECENTE_JOURS_);
 verifier('une valeur illisible ne fait pas échouer le rapport',

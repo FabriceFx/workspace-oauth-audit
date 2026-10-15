@@ -7,6 +7,21 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [Non publié]
+
+### Corrigé
+
+- **La fenêtre courte changeait avec l'heure de la journée.** Pour un même
+  journal, le rapport annonçait « volume sur 7 jours » le matin et « sur
+  8 jours » l'après-midi : le nombre de jours était arrondi, entre un début lu
+  à minuit et l'heure présente. Seuls les jours complets comptent désormais —
+  l'étiquette ne promet jamais plus que ce que le journal couvre. Le banc fige
+  l'horloge de part et d'autre de midi pour le vérifier.
+- Le contrôle de types refusait `Guide.gs` : le guide est typé en JSDoc comme
+  une liste de paires (titre, paragraphes).
+
+---
+
 ## [1.7.1] - 2026-10-10
 
 > **Le constat qui dérange :** *Un banc qui choisit l'ordre de chargement ne teste pas le projet qu'on déploie.*

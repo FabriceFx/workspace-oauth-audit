@@ -18,6 +18,8 @@ const ONGLET_GUIDE_ = 'Guide';
  * Le guide est une donnée, pas du code : une liste de sections, chacune faite
  * d'un titre et de paragraphes. L'ajout d'un chapitre ne demande donc pas de
  * toucher à la mise en page.
+ *
+ * @type {Array<[string, string[]]>}
  */
 const GUIDE_ = [
   ['Ce que fait cet outil', [
